@@ -19,7 +19,7 @@ export default function ServiceDetailPage() {
       setLoading(true);
       APIService.getById(id)
         .then((data:any) => {
-          setService(data.data.data);
+          setService(data.data);
           setError(null);
         })
         .catch(() => {
@@ -98,7 +98,7 @@ export default function ServiceDetailPage() {
               <div className="flex items-center gap-3">
                 <span className="font-bold text-primary">Giá:</span>
                 <span className="text-2xl font-bold text-green-700">
-                  {formatCurrency(service.price)} VNĐ
+                  {service.price.toLocaleString()} VNĐ
                 </span>
               </div>
               <div className="flex items-center gap-3">

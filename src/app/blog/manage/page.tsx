@@ -13,25 +13,24 @@ import { useRouter } from "next/navigation";
 export default function BlogManagePage() {
   const { user } = useAuth();
   let roleName = "";
-  if (
-    user?.role &&
-    typeof user.role === "object" &&
-    typeof user.role.name === "string"
-  ) {
+  if (user?.role && typeof user.role === "object" && typeof user.role.name === "string") {
     roleName = user.role.name.toLowerCase();
   }
   const canCreate = ["admin", "manager", "consultant"].includes(roleName);
+  const isAdminOrManager = ["admin", "manager"].includes(roleName);
 
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<any[]>([]);
   const [showImageModal, setShowImageModal] = useState<string | null>(null);
-  const [editBlog, setEditBlog] = useState<any | null>(null);
+  const [editBlog, setEditBlog] = useState<Blog | null>(null);
   const [reasonModalOpen, setReasonModalOpen] = useState(false);
   const [selectedBlogReason, setSelectedBlogReason] = useState({
     rejectionReason: "",
     revisionNotes: "",
   });
+  const [selectedBlog, setSelectedBlog] = useState<Blog | null>(null);
+  const [showReviewDialog, setShowReviewDialog] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -47,23 +46,26 @@ export default function BlogManagePage() {
           setBlogs([]);
         }
       })
-      .catch(() => setBlogs([]))
+      .catch((error) => {
+        console.error("Lỗi khi lấy danh sách blog:", error);
+        setBlogs([]);
+      })
       .finally(() => setLoading(false));
-    // Fetch all users for author name mapping
     fetchAllUsers()
       .then((res) => {
         if (Array.isArray(res?.data)) setUsers(res.data);
         else if (Array.isArray(res)) setUsers(res);
         else setUsers([]);
       })
-      .catch(() => setUsers([]));
+      .catch((error) => {
+        console.error("Lỗi khi lấy danh sách người dùng:", error);
+        setUsers([]);
+      });
   }, [canCreate]);
 
-  // Helper to get author full name
   function getAuthorName(authorId: string) {
     const user = users.find((u) => u.id === authorId);
-    if (!user) return authorId;
-    return (user.firstName || "") + (user.lastName ? " " + user.lastName : "");
+    return user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : authorId;
   }
 
   const handleOpenReasonModal = (blog: Blog) => {
@@ -81,6 +83,54 @@ export default function BlogManagePage() {
       setBlogs((prev) => prev.filter((b) => b.id !== id));
     } catch (err: any) {
       alert(err?.message || "Xoá blog thất bại");
+    }
+  };
+
+  const handleReviewClick = (blog: Blog) => {
+    setSelectedBlog(blog);
+    setSelectedBlogReason({
+      rejectionReason: blog.rejectionReason || "",
+      revisionNotes: blog.revisionNotes || "",
+    });
+    setShowReviewDialog(true);
+  };
+
+  const handlePublishClick = async (id: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xuất bản blog này?")) return;
+    try {
+      await BlogService.publish(id);
+      setBlogs((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, status: "published" } : b))
+      );
+    } catch (err: any) {
+      alert(err?.message || "Xuất bản thất bại");
+    }
+  };
+
+  const handleReviewSubmit = async (status: string, reason?: string) => {
+    if (!selectedBlog) return;
+    try {
+      await BlogService.review(selectedBlog.id, {
+        status,
+        ...(status === "REJECTED" && { rejectionReason: reason }),
+        ...(status === "NEEDS_REVISION" && { revisionNotes: reason }),
+      });
+      setBlogs((prev) =>
+        prev.map((b) =>
+          b.id === selectedBlog.id
+            ? {
+                ...b,
+                status,
+                rejectionReason: status === "REJECTED" ? reason : "",
+                revisionNotes: status === "NEEDS_REVISION" ? reason : "",
+              }
+            : b
+        )
+      );
+      setShowReviewDialog(false);
+      setSelectedBlogReason({ rejectionReason: "", revisionNotes: "" });
+    } catch (err: any) {
+      alert(err?.message || "Duyệt thất bại");
     }
   };
 
@@ -150,18 +200,29 @@ export default function BlogManagePage() {
                           size="sm"
                           variant="destructive"
                           onClick={() => handleDeleteBlog(blog.id)}
-                          disabled={
-                            roleName !== "admin" && roleName !== "manager"
-                          }
-                          style={{
-                            display:
-                              roleName === "admin" || roleName === "manager"
-                                ? undefined
-                                : "none",
-                          }}
+                          disabled={!isAdminOrManager}
                         >
                           Xoá
                         </Button>
+                        {isAdminOrManager && blog.status === "pending_review" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleReviewClick(blog)}
+                          >
+                            Duyệt
+                          </Button>
+                        )}
+                        {isAdminOrManager && blog.status === "approved" && (
+                          <Button
+                            size="sm"
+                            variant="default" // Thay "success" bằng "default"
+                            className="bg-green-500 text-white hover:bg-green-600" // Thêm class CSS để mô phỏng màu success
+                            onClick={() => handlePublishClick(blog.id)}
+                          >
+                            Xuất bản
+                          </Button>
+                        )}
                         {(blog.rejectionReason || blog.revisionNotes) && (
                           <Button
                             size="sm"
@@ -179,7 +240,7 @@ export default function BlogManagePage() {
                               className="absolute top-2 right-2 text-xl"
                               onClick={() => setShowImageModal(null)}
                             >
-                              &times;
+                              ×
                             </button>
                             <h3 className="text-lg font-bold mb-4">
                               Cập nhật ảnh cho blog
@@ -188,7 +249,7 @@ export default function BlogManagePage() {
                           </div>
                         </div>
                       )}
-                      {editBlog && editBlog.id === blog.id && (
+                      {editBlog?.id === blog.id && (
                         <EditBlogModal
                           blog={editBlog}
                           onClose={() => setEditBlog(null)}
@@ -201,6 +262,82 @@ export default function BlogManagePage() {
                             });
                           }}
                         />
+                      )}
+                      {showReviewDialog && selectedBlog?.id === blog.id && (
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+                            <h3 className="text-lg font-bold mb-4">Duyệt bài viết</h3>
+                            <div className="mb-4">
+                              <label className="block mb-2">Trạng thái:</label>
+                              <select
+                                className="w-full border rounded p-2"
+                                value={
+                                  selectedBlogReason.rejectionReason
+                                    ? "REJECTED"
+                                    : selectedBlogReason.revisionNotes
+                                    ? "NEEDS_REVISION"
+                                    : ""
+                                }
+                                onChange={(e) => {
+                                  const status = e.target.value;
+                                  setSelectedBlogReason({
+                                    rejectionReason: status === "REJECTED" ? "" : selectedBlogReason.rejectionReason,
+                                    revisionNotes: status === "NEEDS_REVISION" ? "" : selectedBlogReason.revisionNotes,
+                                  });
+                                }}
+                              >
+                                <option value="">Chọn trạng thái</option>
+                                <option value="APPROVED">Duyệt</option>
+                                <option value="REJECTED">Từ chối</option>
+                                <option value="NEEDS_REVISION">Yêu cầu sửa</option>
+                              </select>
+                            </div>
+                            {(selectedBlogReason.rejectionReason || selectedBlogReason.revisionNotes) && (
+                              <div className="mb-4">
+                                <label className="block mb-2">Lý do:</label>
+                                <textarea
+                                  className="w-full border rounded p-2"
+                                  value={selectedBlogReason.rejectionReason || selectedBlogReason.revisionNotes || ""}
+                                  onChange={(e) =>
+                                    setSelectedBlogReason({
+                                      ...selectedBlogReason,
+                                      rejectionReason: selectedBlogReason.rejectionReason ? e.target.value : "",
+                                      revisionNotes: selectedBlogReason.revisionNotes ? e.target.value : "",
+                                    })
+                                  }
+                                  placeholder="Nhập lý do hoặc ghi chú..."
+                                />
+                              </div>
+                            )}
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                onClick={() => setShowReviewDialog(false)}
+                              >
+                                Hủy
+                              </Button>
+                              <Button
+                                onClick={() => {
+                                  const status =
+                                    selectedBlogReason.rejectionReason
+                                      ? "REJECTED"
+                                      : selectedBlogReason.revisionNotes
+                                      ? "NEEDS_REVISION"
+                                      : "APPROVED";
+                                  handleReviewSubmit(status, selectedBlogReason.rejectionReason || selectedBlogReason.revisionNotes);
+                                }}
+                                disabled={
+                                  !selectedBlogReason.rejectionReason &&
+                                  !selectedBlogReason.revisionNotes &&
+                                  selectedBlogReason.rejectionReason !== "" &&
+                                  selectedBlogReason.revisionNotes !== ""
+                                }
+                              >
+                                Xác nhận
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
                       )}
                     </td>
                   </tr>

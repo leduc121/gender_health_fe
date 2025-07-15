@@ -1,130 +1,138 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Blog, BlogService } from "@/services/blog.service";
-import { cn } from "@/lib/utils";
+import { Blog } from "@/services/blog.service";
 
-interface BlogReviewModalProps {
+/**
+ * Định nghĩa props cho BlogReviewModal.
+ * @param {Blog | null} blog - Đối tượng blog cần review.
+ * @param {() => void} onClose - Hàm để đóng modal.
+ * @param {(blog: Blog, status: string, reason?: string) => void} onReview - Hàm callback để xử lý logic review từ component cha.
+ * @param {boolean} loading - Trạng thái loading để vô hiệu hóa các nút khi đang xử lý.
+ */
+export interface BlogReviewModalProps {
   blog: Blog | null;
   onClose: () => void;
-  onReviewSuccess: () => void;
+  onReview: (blog: Blog, status: string, reason?: string) => void;
+  loading: boolean;
 }
 
 export default function BlogReviewModal({
   blog,
   onClose,
-  onReviewSuccess,
+  onReview,
+  loading,
 }: BlogReviewModalProps) {
-  const [reviewStatus, setReviewStatus] = useState("approved");
+  const [reviewStatus, setReviewStatus] = useState<string>("approved");
   const [reason, setReason] = useState("");
-  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
+  // Reset lại trạng thái của modal mỗi khi một blog mới được chọn
   useEffect(() => {
     if (blog) {
       setReviewStatus("approved");
       setReason("");
       setError("");
-      setSuccess("");
     }
   }, [blog]);
 
-  const handleReview = async () => {
+  // Xử lý khi người dùng nhấn nút "Xác nhận"
+  const handleSubmit = () => {
     if (!blog) return;
-    if (!reason.trim()) {
-      setError(
-        reviewStatus === "approved"
-          ? "Vui lòng nhập ghi chú chỉnh sửa!"
-          : "Vui lòng nhập lý do từ chối!"
-      );
+
+    // Kiểm tra nếu trạng thái không phải là 'approved' thì phải có lý do
+    if (reviewStatus !== "approved" && !reason.trim()) {
+      setError("Vui lòng nhập lý do hoặc ghi chú.");
       return;
     }
-
-    setActionLoading(true);
     setError("");
-    setSuccess("");
-    try {
-      await BlogService.review(blog.id, {
-        status: reviewStatus,
-        ...(reviewStatus === "approved" && { revisionNotes: reason }),
-        ...(reviewStatus === "rejected" && { rejectionReason: reason }),
-      });
-      setSuccess("Đã review thành công!");
-      onReviewSuccess();
-      onClose();
-    } catch (err: any) {
-      setError(err?.message || "Lỗi review");
-    } finally {
-      setActionLoading(false);
-    }
+    // Gọi hàm onReview đã được truyền từ component cha
+    onReview(blog, reviewStatus, reason);
   };
 
   if (!blog) return null;
 
+  // Lấy nhãn cho ô nhập lý do tùy theo trạng thái
+  const getReasonLabel = () => {
+    if (reviewStatus === "rejected") {
+      return "Lý do từ chối (rejectionReason)";
+    }
+    if (reviewStatus === "needs_revision") {
+      return "Ghi chú yêu cầu sửa (revisionNotes)";
+    }
+    return "";
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-xl relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 transition-opacity">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl relative m-4">
         <button
-          className="absolute top-2 right-2 text-xl"
+          className="absolute top-3 right-3 text-2xl text-gray-500 hover:text-gray-800"
           onClick={onClose}
           aria-label="Đóng"
-          tabIndex={0}
+          disabled={loading}
         >
           &times;
         </button>
-        <h2 className="text-xl font-bold mb-2">{blog.title}</h2>
-        <div className="mb-4">{blog.content}</div>
+        <h2 className="text-2xl font-bold mb-4 text-gray-800">
+          Duyệt bài viết: {blog.title}
+        </h2>
+        
+        {/* Hiển thị nội dung blog */}
         <div className="mb-4">
-          <label htmlFor="reviewStatus" className="font-medium">Trạng thái review</label>
+            <p className="font-semibold text-gray-700">Nội dung:</p>
+            <div
+                className="prose max-w-none max-h-60 overflow-y-auto p-3 border rounded-md bg-gray-50 mt-1"
+                dangerouslySetInnerHTML={{ __html: blog.content }}
+            />
+        </div>
+
+        {/* Lựa chọn trạng thái review */}
+        <div className="mb-4">
+          <label htmlFor="reviewStatus" className="font-medium block mb-1 text-gray-700">
+            Hành động
+          </label>
           <select
             id="reviewStatus"
-            className="w-full border rounded px-2 py-1 mt-1"
+            className="w-full border rounded px-3 py-2 mt-1 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             value={reviewStatus}
             onChange={(e) => {
               setReviewStatus(e.target.value);
-              setReason("");
+              setError(""); // Xóa lỗi khi thay đổi
             }}
           >
-            <option value="approved">Duyệt (approved)</option>
-            <option value="rejected">Từ chối (rejected)</option>
+            <option value="approved">Duyệt (Approved)</option>
+            <option value="rejected">Từ chối (Rejected)</option>
+            <option value="needs_revision">Yêu cầu sửa (Needs Revision)</option>
           </select>
         </div>
-        {reviewStatus === "approved" && (
+
+        {/* Ô nhập lý do (chỉ hiện khi cần) */}
+        {reviewStatus !== "approved" && (
           <div className="mb-4">
-            <label htmlFor="revisionNotes" className="font-medium">
-              Ghi chú chỉnh sửa (revisionNotes)
+            <label htmlFor="reason" className="font-medium text-gray-700">
+              {getReasonLabel()}
             </label>
             <textarea
-              id="revisionNotes"
-              className="w-full border rounded px-2 py-1 mt-1"
+              id="reason"
+              className="w-full border rounded px-3 py-2 mt-1 min-h-[100px] shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              required
-              placeholder="Nhập ghi chú chỉnh sửa"
+              placeholder="Nhập lý do hoặc ghi chú..."
             />
           </div>
         )}
-        {reviewStatus === "rejected" && (
-          <div className="mb-4">
-            <label htmlFor="rejectionReason" className="font-medium">
-              Lý do từ chối (rejectionReason)
-            </label>
-            <textarea
-              id="rejectionReason"
-              className="w-full border rounded px-2 py-1 mt-1"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              required
-              placeholder="Nhập lý do từ chối"
-            />
-          </div>
-        )}
-        {error && <div className="text-red-500 mb-2">{error}</div>}
-        {success && <div className="text-green-600 mb-2">{success}</div>}
-        <div className="flex gap-2 justify-end">
-          <Button onClick={handleReview} disabled={actionLoading}>
-            {actionLoading ? "Đang gửi..." : "Gửi review"}
+
+        {/* Hiển thị lỗi */}
+        {error && <div className="text-red-600 mb-4 font-medium">{error}</div>}
+
+        {/* Các nút hành động */}
+        <div className="flex gap-3 justify-end mt-6">
+          <Button variant="outline" onClick={onClose} disabled={loading}>
+            Hủy
+          </Button>
+          <Button onClick={handleSubmit} disabled={loading}>
+            {loading ? "Đang xử lý..." : "Xác nhận"}
           </Button>
         </div>
       </div>
