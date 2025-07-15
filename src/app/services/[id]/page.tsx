@@ -5,13 +5,11 @@ import { useParams } from "next/navigation";
 import { APIService, Service } from "@/services/service.service";
 import Image from "next/image";
 import Link from "next/link";
-import { formatCurrency } from "@/lib/utils";
 
 export default function ServiceDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const [service, setService] = useState<Service | null>(null);
-  console.log("hello",service);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,7 +18,7 @@ export default function ServiceDetailPage() {
       setLoading(true);
       APIService.getById(id)
         .then((data:any) => {
-          setService(data.data.data);
+          setService(data.data);
           setError(null);
         })
         .catch(() => {
@@ -99,7 +97,7 @@ export default function ServiceDetailPage() {
               <div className="flex items-center gap-3">
                 <span className="font-bold text-primary">Giá:</span>
                 <span className="text-2xl font-bold text-green-700">
-                  {formatCurrency(service?.price)} VNĐ
+                  {service.price.toLocaleString()} VNĐ
                 </span>
               </div>
               <div className="flex items-center gap-3">

@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
-import { APIService, Service} from "@/services/service.service";
+import { Service, ServiceService } from "@/services/service.service";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useSearchParams, useRouter } from "next/navigation";
 import { DayPicker } from "react-day-picker";
@@ -123,8 +123,8 @@ export default function AppointmentsPage() {
 
   useEffect(() => {
     setLoadingServices(true);
-    APIService.getAll()
-      .then((data: any) => {
+    ServiceService.getAll()
+      .then((data) => {
         // Robustly extract the array from possible response shapes
         if (Array.isArray(data)) {
           setServices(data);
