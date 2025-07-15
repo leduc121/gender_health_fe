@@ -28,6 +28,7 @@ import { CheckCircle2 } from "lucide-react";
 import StiStepper from "@/components/StiStepper";
 import StiServiceCard from "@/components/StiServiceCard";
 import StiSummarySidebar from "@/components/StiSummarySidebar";
+import AuthDialog from "@/components/AuthDialog"; // Import AuthDialog
 import { APIService, Service } from "@/services/service.service"; // Import APIService and Service
 import { STITestingService } from "@/services/sti-testing.service"; // Import STITestingService
 import { CreateStiAppointmentDto, Appointment, FindAvailableSlotsDto, AvailableSlotDto } from "@/types/sti-appointment.d"; // Import new DTOs and types
@@ -239,8 +240,17 @@ export default function STITestingPage() {
         };
 
         const response = await STITestingService.getAvailableAppointmentSlots(payload);
-        const slots = response.availableSlots.filter(slot => slot.remainingSlots > 0);
+        let slots = response.availableSlots.filter(slot => slot.remainingSlots > 0);
         
+        // Deduplicate slots by availabilityId to ensure unique keys for rendering
+        const uniqueSlotsMap = new Map<string, AvailableSlotDto>();
+        for (const slot of slots) {
+          if (!uniqueSlotsMap.has(slot.availabilityId)) {
+            uniqueSlotsMap.set(slot.availabilityId, slot);
+          }
+        }
+        slots = Array.from(uniqueSlotsMap.values());
+
         // Sort slots by time
         slots.sort((a, b) => {
           const timeA = new Date(a.dateTime).getHours() * 60 + new Date(a.dateTime).getMinutes();
@@ -513,6 +523,23 @@ export default function STITestingPage() {
             >
               Đặt thêm xét nghiệm khác
             </Button>
+          </div>
+        )}
+        {!user && (
+          <div className="text-center mt-12">
+            <h2 className="text-2xl font-bold mb-4 text-primary">
+              Yêu cầu đăng nhập
+            </h2>
+            <p className="mb-4">
+              Vui lòng đăng nhập để sử dụng dịch vụ tư vấn trực tuyến
+            </p>
+            <AuthDialog
+              trigger={
+                <Button className="btn-primary rounded-full px-8 py-3 text-lg shadow-lg">
+                  Đăng nhập ngay
+                </Button>
+              }
+            />
           </div>
         )}
       </div>
