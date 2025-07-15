@@ -36,12 +36,12 @@ export interface Appointment {
 }
 
 export interface CreateAppointmentRequest {
-  consultantId: string;
+  consultantId?: string; // Make optional as it's not always required
   serviceIds?: string[]; // Change to array of service IDs
   appointmentDate: string; // This will now include both date and time in ISO format
   notes?: string;
   meetingLink?: string;
-  appointmentLocation?: string; // This will now carry the "type" value
+  appointmentLocation?: string; // Make optional to match usage
 }
 
 export interface UpdateAppointmentStatusRequest {
@@ -171,7 +171,7 @@ export const AppointmentService = {
   cancelAppointment: async (id: string, reason?: string): Promise<void> => {
     try {
       console.log("[AppointmentService] Cancelling appointment:", id, reason);
-      await apiClient.post(API_ENDPOINTS.APPOINTMENTS.CANCEL(id), {
+      await apiClient.patch(API_ENDPOINTS.APPOINTMENTS.CANCEL(id), {
         cancellationReason: reason,
       });
     } catch (error) {
