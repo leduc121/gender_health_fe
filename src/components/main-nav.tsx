@@ -17,7 +17,7 @@ const mainNavItems = [
     href: "/services",
   },
   {
-    title: "Đặt lịch tư vấn",
+    title: "Tư vấn trực tuyến",
     href: "/consultant",
   },
   {
@@ -36,7 +36,16 @@ const mainNavItems = [
 
 export function MainNav() {
   const pathname = usePathname();
-  const { user, logout, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  const filteredNavItems = mainNavItems.filter((item) => {
+    if (item.href === "/menstrual-tracker") {
+      return isAuthenticated && user?.gender === "F";
+    }
+    return true;
+  });
+
+  if (isLoading) return null; // Optionally handle loading state for main nav
 
   return (
     <div className="mr-4 hidden md:flex">
@@ -48,7 +57,7 @@ export function MainNav() {
         </div>
       </Link>
       <nav className="flex items-center space-x-6 text-sm font-medium">
-        {mainNavItems.map((item) => (
+        {filteredNavItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}

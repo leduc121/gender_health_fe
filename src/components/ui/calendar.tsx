@@ -125,10 +125,11 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        Root: ({ className, ...props }) => {
+        Root: ({ className, rootRef, ...props }) => {
           return (
             <div
               data-slot="calendar"
+              ref={rootRef}
               className={cn(className)}
               {...props}
             />

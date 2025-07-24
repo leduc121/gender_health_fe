@@ -13,7 +13,7 @@ interface RegisterData {
   password: string;
   phone: string;
   address: string;
-  gender: "M" | "F" | "O";
+  gender: string;
 }
 
 interface ResetPasswordData {
