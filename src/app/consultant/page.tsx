@@ -1,8 +1,7 @@
 "use client";
 
-import { useAuth } from "@/contexts/AuthContext";
 import OnlineConsultationBooking from "@/components/OnlineConsultationBooking";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
@@ -18,113 +17,239 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import { apiClient } from "@/services/api";
+import { API_ENDPOINTS } from "@/config/api";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay } from "date-fns";
+import { vi } from "date-fns/locale"; // Import Vietnamese locale
+import { UpdateAppointmentStatusDialog } from "@/components/UpdateAppointmentStatusDialog";
+import { AppointmentDetailsDialog } from "@/components/AppointmentDetailsDialog";
+import { translatedAppointmentStatus } from "@/lib/translations";
+import { API_FEATURES } from "@/config/api";
+import { Pagination } from "@/components/ui/pagination";
+import { PaginationInfo } from "@/components/ui/pagination-info";
+import { ChatService, ChatRoom } from "@/services/chat.service"; // Import ChatService and ChatRoom
+import { Appointment } from "@/types/api.d"; // Import global Appointment type
+import { User } from "@/services/user.service"; // Import User type
+import { ConsultantProfile } from "@/services/consultant.service"; // Import ConsultantProfile type
+import { EditConsultantProfileDialog } from "@/components/EditConsultantProfileDialog"; // Import the new dialog
+
+interface Feedback {
+  id: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  user: {
+    firstName: string;
+    lastName: string;
+  };
+}
 
 export default function ConsultantPage() {
-  const { user } = useAuth();
-  const { toast } = useToast();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    new Date()
-  );
 
-  // Nếu người dùng là tư vấn viên, hiển thị dashboard
-  if (user && (
-    (typeof user.role === "string" && user.role === "consultant") ||
-    (typeof user.role === "object" && user.role?.name === "consultant")
-  )) {
-    return <ConsultantDashboard />;
+  console.log("ConsultantPage: user", user);
+  console.log("ConsultantPage: isAuthLoading", isAuthLoading);
+
+  // If user is loading or not a consultant, show appropriate message/component
+  if (isAuthLoading) {
+    console.log("ConsultantPage: Auth is loading.");
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <p>Đang tải...</p>
+      </div>
+    );
   }
 
-  // Nếu không phải tư vấn viên, hiển thị giao diện đặt lịch
-  return <OnlineConsultationBooking />;
+  if (!user || (typeof user.role === "string" && user.role !== "consultant") || (typeof user.role === "object" && user.role?.name !== "consultant")) {
+    console.log("ConsultantPage: User is not a consultant or not logged in.");
+    return <OnlineConsultationBooking />;
+  }
+
+  console.log("ConsultantPage: user.consultantProfile", user.consultantProfile);
+  if (!user.consultantProfile) {
+    console.log("ConsultantPage: User is a consultant but has no profile. Showing CreateConsultantProfile.");
+    return <CreateConsultantProfile />;
+  }
+
+  return <ConsultantDashboard />;
+}
+
+function CreateConsultantProfile() {
+  const { user, setUser } = useAuth();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [isEditProfileDialogOpen, setIsEditProfileDialogOpen] = useState(false);
+
+  const handleSaveProfile = (updatedProfile: ConsultantProfile) => {
+    // This function is called when the dialog saves a profile
+    // The AuthContext's user state is already updated by the dialog's onSubmit
+    // We just need to close the dialog and potentially refresh the page if needed
+    setIsEditProfileDialogOpen(false);
+    toast({
+      title: "Thành công",
+      description: "Đã tạo hồ sơ tư vấn viên. Hồ sơ đang chờ duyệt.",
+    });
+    // router.refresh(); // No need to refresh here, AuthContext update should trigger re-render
+  };
+
+  return (
+    <div className="container mx-auto px-4 py-8 text-center">
+      <h1 className="text-3xl font-bold mb-6">Tạo hồ sơ tư vấn viên</h1>
+      <p className="text-lg mb-8">
+        Bạn chưa có hồ sơ tư vấn viên. Vui lòng tạo hồ sơ để bắt đầu quản lý lịch làm việc và cuộc hẹn.
+      </p>
+      <Button onClick={() => setIsEditProfileDialogOpen(true)} disabled={loading}>
+        {loading ? "Đang tải..." : "Tạo hồ sơ tư vấn viên"}
+      </Button>
+
+      <EditConsultantProfileDialog
+        isOpen={isEditProfileDialogOpen}
+        onClose={() => setIsEditProfileDialogOpen(false)}
+        currentProfile={null} // No current profile to edit, so pass null
+        onSave={handleSaveProfile}
+      />
+    </div>
+  );
 }
 
 function ConsultantDashboard() {
+  const { user, setUser } = useAuth(); // Ensure setUser is available for dashboard to update profile
   const { toast } = useToast();
   const router = useRouter();
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    new Date()
-  );
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loadingAppointments, setLoadingAppointments] = useState(true);
+  const [errorAppointments, setErrorAppointments] = useState<string | null>(null);
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [loadingFeedbacks, setLoadingFeedbacks] = useState(true);
+  const [errorFeedbacks, setErrorFeedbacks] = useState<string | null>(null);
+  const [dailySchedule, setDailySchedule] = useState<any[]>([]); // Placeholder for daily schedule
+  const [isEditProfileDialogOpen, setIsEditProfileDialogOpen] = useState(false); // State for dialog
+
+  // Pagination states for appointments
+  const [currentPage, setCurrentPage] = useState(API_FEATURES.PAGINATION.DEFAULT_PAGE);
+  const [totalAppointments, setTotalAppointments] = useState(0);
+  const limit = API_FEATURES.PAGINATION.DEFAULT_LIMIT;
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchAppointments(user.id);
+      fetchFeedbacks(user.id);
+      fetchDailySchedule(user.id, selectedDate || new Date());
+    }
+  }, [user, selectedDate, currentPage]); // Add currentPage to dependencies
+
+  const fetchAppointments = async (consultantId: string) => {
+    setLoadingAppointments(true);
+    setErrorAppointments(null);
+    try {
+      const response = await apiClient.get<{ data: Appointment[]; meta: { totalItems: number; totalPages: number } }>(
+        `${API_ENDPOINTS.APPOINTMENTS.BASE}?consultantId=${consultantId}&page=${currentPage}&limit=${limit}`
+      );
+      setAppointments(response.data || []);
+      setTotalAppointments(response.meta.totalItems);
+    } catch (err: any) {
+      console.error("Error fetching appointments:", err);
+      setErrorAppointments(err?.message || "Lỗi khi tải danh sách cuộc hẹn");
+    } finally {
+      setLoadingAppointments(false);
+    }
+  };
+
+  const fetchFeedbacks = async (consultantId: string) => {
+    setLoadingFeedbacks(true);
+    setErrorFeedbacks(null);
+    try {
+      const response = await apiClient.get<{ data: Feedback[] }>(
+        `${API_ENDPOINTS.FEEDBACKS}?consultantId=${consultantId}`
+      );
+      setFeedbacks(response.data || []);
+    } catch (err: any) {
+      console.error("Error fetching feedbacks:", err);
+      setErrorFeedbacks(err?.message || "Lỗi khi tải đánh giá");
+    } finally {
+      setLoadingFeedbacks(false);
+    }
+  };
+
+  const fetchDailySchedule = async (consultantId: string, date: Date) => {
+    try {
+      const dayOfWeek = date.getDay(); // 0 for Sunday, 1 for Monday, etc.
+      const response = await apiClient.get<{ data: any[] }>(
+        `${API_ENDPOINTS.CONSULTANTS.AVAILABILITY}/consultant?consultantId=${consultantId}&dayOfWeek=${dayOfWeek}`
+      );
+
+      const groupedSchedule: { [key: string]: { time: string; isBooked: boolean } } = {};
+
+      response.data.forEach((slot: any) => {
+        const timeSlot = `${slot.startTime} - ${slot.endTime}`;
+        if (!groupedSchedule[timeSlot]) {
+          groupedSchedule[timeSlot] = { time: timeSlot, isBooked: false };
+        }
+        if (!slot.isAvailable) {
+          groupedSchedule[timeSlot].isBooked = true;
+        }
+      });
+
+      const finalSchedule = Object.values(groupedSchedule).map(item => ({
+        time: item.time,
+        status: item.isBooked ? "Đã đặt" : "Trống",
+      }));
+
+      setDailySchedule(finalSchedule);
+    } catch (err) {
+      console.error("Error fetching daily schedule:", err);
+      setDailySchedule([]); // Clear schedule on error
+    }
+  };
 
   const handleStatusChange = async (appointmentId: string, status: string) => {
     try {
-      const response = await fetch(
-        `https://gender-healthcare.org/api/appointments/${appointmentId}/status`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            // Add authorization header here
-          },
-          body: JSON.stringify({ status }),
-        }
+      await apiClient.patch(
+        `${API_ENDPOINTS.APPOINTMENTS.UPDATE_STATUS(appointmentId)}`,
+        { status }
       );
-
-      if (!response.ok) {
-        throw new Error("Không thể cập nhật trạng thái");
-      }
 
       toast({
         title: "Thành công",
         description: "Đã cập nhật trạng thái cuộc hẹn",
       });
-    } catch (error) {
+      if (user?.id) {
+        fetchAppointments(user.id); // Refresh appointments after status change
+      }
+    } catch (error: any) {
       toast({
         title: "Lỗi",
-        description: "Không thể cập nhật. Vui lòng thử lại sau.",
+        description: error?.message || "Không thể cập nhật. Vui lòng thử lại sau.",
         variant: "destructive",
       });
     }
+  };
+
+  const handleDateSelect = (date: Date | undefined) => {
+    setSelectedDate(date);
+    if (user?.id && date) {
+      fetchDailySchedule(user.id, date);
+    }
+  };
+
+  const handleSaveProfile = (updatedProfile: ConsultantProfile) => {
+    // This function is called when the dialog saves a profile
+    // The AuthContext's user state is already updated by the dialog's onSubmit
+    // We just need to close the dialog
+    setIsEditProfileDialogOpen(false);
+    toast({
+      title: "Thành công",
+      description: "Đã cập nhật hồ sơ tư vấn viên.",
+    });
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Dashboard tư vấn viên</h1>
 
-      {/* Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Cuộc hẹn hôm nay
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">8</div>
-            <p className="text-xs text-muted-foreground">3 đã hoàn thành</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Số giờ tư vấn</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">12.5</div>
-            <p className="text-xs text-muted-foreground">Trong tuần này</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Đánh giá</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">4.8/5</div>
-            <p className="text-xs text-muted-foreground">Từ 124 đánh giá</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Thu nhập</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">12.4M</div>
-            <p className="text-xs text-muted-foreground">Trong tháng này</p>
-          </CardContent>
-        </Card>
-      </div>
 
       <Tabs defaultValue="schedule" className="space-y-6">
         <TabsList>
@@ -139,30 +264,38 @@ function ConsultantDashboard() {
               <CardTitle>Quản lý lịch làm việc</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <Button
+                onClick={() => setIsEditProfileDialogOpen(true)}
+                className="mb-4"
+              >
+                Chỉnh sửa hồ sơ
+              </Button>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Calendar
                   mode="single"
                   selected={selectedDate}
-                  onSelect={setSelectedDate}
+                  onSelect={handleDateSelect}
                   className="rounded-md border"
+                  locale={vi}
                 />
                 <div className="space-y-4">
-                  <h3 className="font-semibold">Lịch trong ngày</h3>
+                  <h3 className="font-semibold">Lịch trong ngày {selectedDate ? format(selectedDate, "dd/MM/yyyy", { locale: vi }) : ""}</h3>
                   <div className="space-y-2">
-                    <div className="flex justify-between items-center p-2 border rounded-lg">
-                      <div>
-                        <p className="font-medium">09:00 - 10:00</p>
-                        <p className="text-sm text-muted-foreground">Đã đặt</p>
-                      </div>
-                      <Badge>Đã đặt</Badge>
-                    </div>
-                    <div className="flex justify-between items-center p-2 border rounded-lg">
-                      <div>
-                        <p className="font-medium">10:00 - 11:00</p>
-                        <p className="text-sm text-muted-foreground">Trống</p>
-                      </div>
-                      <Badge variant="outline">Trống</Badge>
-                    </div>
+                    {dailySchedule.length > 0 ? (
+                      dailySchedule.map((slot, index) => (
+                        <div key={index} className="flex justify-between items-center p-2 border rounded-lg">
+                          <div>
+                            <p className="font-medium">{slot.time}</p>
+                            <p className="text-sm text-muted-foreground">{slot.status}</p>
+                          </div>
+                          <Badge className={slot.status === "Đã đặt" ? "" : "bg-gray-200 text-gray-800"}>
+                            {slot.status}
+                          </Badge>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground">Không có lịch làm việc cho ngày này.</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -176,54 +309,138 @@ function ConsultantDashboard() {
               <CardTitle>Quản lý cuộc hẹn</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Mã cuộc hẹn</TableHead>
-                    <TableHead>Khách hàng</TableHead>
-                    <TableHead>Thời gian</TableHead>
-                    <TableHead>Loại tư vấn</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Thao tác</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell>APT-001</TableCell>
-                    <TableCell>Nguyễn Văn A</TableCell>
-                    <TableCell>23/06/2025 09:00</TableCell>
-                    <TableCell>Tư vấn trực tuyến</TableCell>
-                    <TableCell>
-                      <Badge>Chờ xác nhận</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            handleStatusChange("APT-001", "confirmed")
-                          }
-                        >
-                          Xác nhận
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          Chi tiết
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() =>
-                            router.push("/appointments/update-status/APT-001")
-                          }
-                        >
-                          Cập nhật trạng thái
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+              {loadingAppointments ? (
+                <div className="flex justify-center items-center h-40">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-t-2 border-gray-200" />
+                </div>
+              ) : errorAppointments ? (
+                <p className="text-red-500 text-center">{errorAppointments}</p>
+              ) : appointments.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Mã cuộc hẹn</TableHead>
+                      <TableHead>Khách hàng</TableHead>
+                      <TableHead>Thời gian</TableHead>
+                      <TableHead>Loại tư vấn</TableHead>
+                      <TableHead>Trạng thái</TableHead>
+                      <TableHead>Thao tác</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {appointments.map((appointment) => (
+                      <TableRow key={appointment.id}>
+                        <TableCell>{appointment.id.substring(0, 8).toUpperCase()}</TableCell>
+                        <TableCell>{`${appointment.user.firstName} ${appointment.user.lastName}`}</TableCell>
+                        <TableCell>{format(new Date(appointment.appointmentDate), "dd/MM/yyyy HH:mm", { locale: vi })}</TableCell>
+                        <TableCell>{appointment.service?.name || "Tư vấn trực tuyến"}</TableCell>
+                        <TableCell>
+                          <Badge>{translatedAppointmentStatus(appointment.status)}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                handleStatusChange(appointment.id, "confirmed")
+                              }
+                            >
+                              Xác nhận
+                            </Button>
+                            <AppointmentDetailsDialog appointment={appointment} />
+                            <UpdateAppointmentStatusDialog
+                              appointmentId={appointment.id}
+                              onStatusUpdate={() => {
+                                if (user) {
+                                  fetchAppointments(user.id);
+                                }
+                              }}
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  const chatRoom: ChatRoom = await ChatService.getChatRoomByAppointmentId(appointment.id);
+
+                                  // If appointment has no notes or empty notes, send a default message
+                                  if (!appointment.service?.name || appointment.service.name.trim() === "") {
+                                    await ChatService.sendAppointmentMessage(chatRoom.id, { content: "Chào bạn" }); // Changed to sendAppointmentMessage
+                                  }
+
+                                  router.push(`/chat/${chatRoom.id}`);
+                                } catch (err: any) {
+                                  toast({
+                                    title: "Lỗi",
+                                    description: `Không thể vào phòng chat: ${err.message || "Đã xảy ra lỗi không xác định."}`,
+                                    variant: "destructive",
+                                  });
+                                  console.error("Error getting chat room or sending initial message:", err);
+                                }
+                              }}
+                            >
+                              Chat
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="text-muted-foreground text-center">Không có cuộc hẹn nào.</p>
+              )}
+              {appointments.length > 0 && (
+                <div className="flex justify-between items-center mt-4">
+                  <PaginationInfo
+                    totalItems={totalAppointments}
+                    itemsPerPage={limit}
+                    currentPage={currentPage}
+                    itemName="cuộc hẹn"
+                  />
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={Math.ceil(totalAppointments / limit)}
+                    pageNumbers={(() => {
+                      const pageNumbers = [];
+                      const maxPagesToShow = 5;
+                      let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+                      let endPage = Math.min(Math.ceil(totalAppointments / limit), startPage + maxPagesToShow - 1);
+
+                      if (endPage - startPage + 1 < maxPagesToShow) {
+                        startPage = Math.max(1, endPage - maxPagesToShow + 1);
+                      }
+
+                      if (startPage > 1) {
+                        pageNumbers.push(1);
+                        if (startPage > 2) {
+                          pageNumbers.push(-1);
+                        }
+                      }
+
+                      for (let i = startPage; i <= endPage; i++) {
+                        pageNumbers.push(i);
+                      }
+
+                      if (endPage < Math.ceil(totalAppointments / limit)) {
+                        if (endPage < Math.ceil(totalAppointments / limit) - 1) {
+                          pageNumbers.push(-1);
+                        }
+                        pageNumbers.push(Math.ceil(totalAppointments / limit));
+                      }
+                      return pageNumbers;
+                    })()}
+                    hasNextPage={currentPage < Math.ceil(totalAppointments / limit)}
+                    hasPreviousPage={currentPage > 1}
+                    onPageChange={setCurrentPage}
+                    onNextPage={() => setCurrentPage(prev => prev + 1)}
+                    onPreviousPage={() => setCurrentPage(prev => prev - 1)}
+                    onFirstPage={() => setCurrentPage(1)}
+                    onLastPage={() => setCurrentPage(Math.ceil(totalAppointments / limit))}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -234,43 +451,46 @@ function ConsultantDashboard() {
               <CardTitle>Đánh giá từ khách hàng</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="p-4 border rounded-lg">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-medium">Nguyễn Văn A</p>
-                      <p className="text-sm text-muted-foreground">
-                        20/06/2025
+              {loadingFeedbacks ? (
+                <div className="flex justify-center items-center h-40">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-t-2 border-gray-200" />
+                </div>
+              ) : errorFeedbacks ? (
+                <p className="text-red-500 text-center">{errorFeedbacks}</p>
+              ) : feedbacks.length > 0 ? (
+                <div className="space-y-4">
+                  {feedbacks.map((feedback) => (
+                    <div key={feedback.id} className="p-4 border rounded-lg">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-medium">{`${feedback.user.firstName} ${feedback.user.lastName}`}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {format(new Date(feedback.createdAt), "dd/MM/yyyy", { locale: vi })}
+                          </p>
+                        </div>
+                        <Badge>{feedback.rating}/5 ⭐</Badge>
+                      </div>
+                      <p className="text-muted-foreground">
+                        {feedback.comment}
                       </p>
                     </div>
-                    <Badge>5/5 ⭐</Badge>
-                  </div>
-                  <p className="text-muted-foreground">
-                    Bác sĩ tư vấn rất tận tình và chuyên nghiệp. Tôi rất hài
-                    lòng với buổi tư vấn.
-                  </p>
+                  ))}
                 </div>
-
-                <div className="p-4 border rounded-lg">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-medium">Trần Thị B</p>
-                      <p className="text-sm text-muted-foreground">
-                        19/06/2025
-                      </p>
-                    </div>
-                    <Badge>4.5/5 ⭐</Badge>
-                  </div>
-                  <p className="text-muted-foreground">
-                    Tư vấn viên rất kinh nghiệm và giải đáp mọi thắc mắc của
-                    tôi.
-                  </p>
-                </div>
-              </div>
+              ) : (
+                <p className="text-muted-foreground text-center">Chưa có đánh giá nào.</p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+      {user?.consultantProfile && (
+        <EditConsultantProfileDialog
+          isOpen={isEditProfileDialogOpen}
+          onClose={() => setIsEditProfileDialogOpen(false)}
+          currentProfile={user.consultantProfile}
+          onSave={handleSaveProfile}
+        />
+      )}
     </div>
   );
 }

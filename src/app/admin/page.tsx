@@ -30,6 +30,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 import { apiClient } from "@/services/api"; // Import apiClient
 import { API_ENDPOINTS } from "@/config/api"; // Import API_ENDPOINTS
+import UserManagementTable from "@/components/UserManagementTable"; // Import UserManagementTable
+import AppointmentManagementTable from "@/components/AppointmentManagementTable"; // Import AppointmentManagementTable
+import StiTestManagementTable from "@/components/StiTestManagementTable"; // Import StiTestManagementTable
+import ConsultantManagementTable from "@/components/ConsultantManagementTable"; // Import ConsultantManagementTable
+import ServiceManagementTable from "@/components/ServiceManagementTable"; // Import ServiceManagementTable
+import StiProcessTable from "@/components/StiProcessTable"; // Import StiProcessTable
+import PaymentManagementTable from "@/components/PaymentManagementTable"; // Import PaymentManagementTable
+import PendingConsultantTable from "@/components/PendingConsultantTable";
 
 interface UserOverviewResponse {
   totalUsers: number;
@@ -128,8 +136,14 @@ export default function AdminDashboard() {
     setLoadingBlogs(true);
     setErrorBlogs(null);
     try {
-      const fetchedBlogs = await BlogService.getAll();
-      setBlogs(fetchedBlogs);
+      const response: any = await BlogService.getAll();
+      if (response && Array.isArray(response.data)) {
+        setBlogs(response.data);
+      } else if (Array.isArray(response)) {
+        setBlogs(response);
+      } else {
+        setBlogs([]);
+      }
     } catch (err: any) {
       setErrorBlogs(err?.message || "Lỗi khi tải danh sách bài viết");
     } finally {
@@ -273,7 +287,8 @@ export default function AdminDashboard() {
           <TabsTrigger value="tests">Xét nghiệm</TabsTrigger>
           <TabsTrigger value="consultants">Tư vấn viên</TabsTrigger>
           <TabsTrigger value="services">Dịch vụ</TabsTrigger>
-          <TabsTrigger value="blogs">Bài viết</TabsTrigger>
+          <TabsTrigger value="payments">Thanh toán</TabsTrigger>
+          <TabsTrigger value="feedback">Đánh giá & Phản hồi</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users">
@@ -282,52 +297,18 @@ export default function AdminDashboard() {
               <CardTitle>Quản lý người dùng</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex gap-4">
-                  <div className="w-[200px]">
-                    <Input placeholder="Tìm kiếm người dùng..." />
-                  </div>
-                  <Select>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Trạng thái" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Đang hoạt động</SelectItem>
-                      <SelectItem value="inactive">Không hoạt động</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button>Thêm người dùng</Button>
-              </div>
+              <UserManagementTable />
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Họ tên</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Số điện thoại</TableHead>
-                    <TableHead>Vai trò</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Thao tác</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell>Nguyễn Văn A</TableCell>
-                    <TableCell>nguyenvana@example.com</TableCell>
-                    <TableCell>0123456789</TableCell>
-                    <TableCell>Khách hàng</TableCell>
-                    <TableCell>
-                      <Badge>Đang hoạt động</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm">
-                        Chỉnh sửa
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+        <TabsContent value="payments">
+          <Card>
+            <CardHeader>
+              <CardTitle>Quản lý Thanh toán</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PaymentManagementTable />
             </CardContent>
           </Card>
         </TabsContent>
@@ -338,140 +319,68 @@ export default function AdminDashboard() {
               <CardTitle>Quản lý cuộc hẹn</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex gap-4">
-                  <Input
-                    placeholder="Tìm kiếm cuộc hẹn..."
-                    className="w-[200px]"
-                  />
-                  <Select>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Trạng thái" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Chờ xác nhận</SelectItem>
-                      <SelectItem value="confirmed">Đã xác nhận</SelectItem>
-                      <SelectItem value="completed">Hoàn thành</SelectItem>
-                      <SelectItem value="cancelled">Đã hủy</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Mã cuộc hẹn</TableHead>
-                    <TableHead>Khách hàng</TableHead>
-                    <TableHead>Tư vấn viên</TableHead>
-                    <TableHead>Ngày giờ</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Thao tác</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell>APT-001</TableCell>
-                    <TableCell>Nguyễn Văn A</TableCell>
-                    <TableCell>Dr. Nguyễn Văn B</TableCell>
-                    <TableCell>23/06/2025 09:00</TableCell>
-                    <TableCell>
-                      <Badge>Chờ xác nhận</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
-                          Xác nhận
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          Chi tiết
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+              <AppointmentManagementTable />
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Add similar content for other tabs */}
-
-        <TabsContent value="blogs">
+        <TabsContent value="tests">
           <Card>
             <CardHeader>
-              <CardTitle>Quản lý bài viết</CardTitle>
+              <CardTitle>Quản lý xét nghiệm</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex gap-4">
-                  <Input
-                    placeholder="Tìm kiếm bài viết..."
-                    className="w-[200px]"
-                  />
-                  <Select>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Trạng thái" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Chờ duyệt</SelectItem>
-                      <SelectItem value="approved">Đã duyệt</SelectItem>
-                      <SelectItem value="published">Đã xuất bản</SelectItem>
-                      <SelectItem value="rejected">Đã từ chối</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Link href="/blog/new">
-                  <Button>Thêm bài viết</Button>
-                </Link>
-              </div>
-
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tiêu đề</TableHead>
-                    <TableHead>Tác giả</TableHead>
-                    <TableHead>Ngày tạo</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Thao tác</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {Array.isArray(blogs) && blogs.map((blog) => (
-                    <TableRow key={blog.id}>
-                      <TableCell>{blog.title}</TableCell>
-                      <TableCell>{blog.author}</TableCell>
-                      <TableCell>{new Date(blog.createdAt).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <Badge>{blog.status}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          {blog.status === "pending" && (
-                            <Button variant="outline" size="sm" onClick={() => handleOpenReviewModal(blog)}>
-                              Duyệt
-                            </Button>
-                          )}
-                          {(blog.status === "approved" || blog.status === "rejected") && (
-                            <Button variant="outline" size="sm" onClick={() => handleOpenPublishModal(blog)}>
-                              Xuất bản
-                            </Button>
-                          )}
-                          <Button variant="ghost" size="sm">
-                            Chi tiết
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              {loadingBlogs && <div className="text-center py-4">Đang tải bài viết...</div>}
-              {errorBlogs && <div className="text-red-500 text-center py-4">{errorBlogs}</div>}
-              {!loadingBlogs && blogs.length === 0 && <div className="text-center py-4">Không có bài viết nào.</div>}
+              <StiTestManagementTable />
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="consultants">
+          <Card>
+            <CardHeader>
+              <CardTitle>Quản lý tư vấn viên</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="list" className="space-y-4">
+                <TabsList>
+                  <TabsTrigger value="list">Danh sách</TabsTrigger>
+                  <TabsTrigger value="pending">Chờ duyệt</TabsTrigger>
+                </TabsList>
+                <TabsContent value="list">
+                  <ConsultantManagementTable />
+                </TabsContent>
+                <TabsContent value="pending">
+                  <PendingConsultantTable />
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="services">
+          <Card>
+            <CardHeader>
+              <CardTitle>Quản lý dịch vụ</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ServiceManagementTable />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="feedback">
+          <Card>
+            <CardHeader>
+              <CardTitle>Quản lý Đánh giá & Phản hồi</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Link href="/admin/feedback">
+                <Button>Đi đến trang quản lý Đánh giá & Phản hồi</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
       </Tabs>
       {isReviewModalOpen && (
         <BlogReviewModal

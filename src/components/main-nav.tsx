@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import AuthDialog from "@/components/AuthDialog";
 
 import { cn } from "@/lib/utils";
 
@@ -36,7 +37,16 @@ const mainNavItems = [
 
 export function MainNav() {
   const pathname = usePathname();
-  const { user, logout, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  const filteredNavItems = mainNavItems.filter((item) => {
+    if (item.href === "/menstrual-tracker") {
+      return isAuthenticated && user?.gender === "F";
+    }
+    return true;
+  });
+
+  if (isLoading) return null; // Optionally handle loading state for main nav
 
   return (
     <div className="mr-4 hidden md:flex">
@@ -48,18 +58,41 @@ export function MainNav() {
         </div>
       </Link>
       <nav className="flex items-center space-x-6 text-sm font-medium">
-        {mainNavItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              "transition-colors hover:text-foreground/80",
-              pathname === item.href ? "text-foreground" : "text-foreground/60"
-            )}
-          >
-            {item.title}
-          </Link>
-        ))}
+        {filteredNavItems.map((item) => {
+          if (item.href === "/sti-testing" && !isAuthenticated) {
+            return (
+              <AuthDialog
+                key={item.href}
+                trigger={
+                  <span
+                    className={cn(
+                      "transition-colors hover:text-foreground/80 cursor-pointer",
+                      pathname === item.href
+                        ? "text-foreground"
+                        : "text-foreground/60"
+                    )}
+                  >
+                    {item.title}
+                  </span>
+                }
+              />
+            );
+          }
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "transition-colors hover:text-foreground/80",
+                pathname === item.href
+                  ? "text-foreground"
+                  : "text-foreground/60"
+              )}
+            >
+              {item.title}
+            </Link>
+          );
+        })}
 
         <div className="flex items-center space-x-4"></div>
       </nav>

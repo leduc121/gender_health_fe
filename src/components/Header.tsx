@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
-import { LogOut, User, Calendar, MessageSquare } from "lucide-react";
+import { LogOut, User, Calendar, MessageSquare, LayoutDashboard, BookOpen, DollarSign } from "lucide-react";
 
 export default function Header() {
   const { user, logout, isAuthenticated, isLoading } = useAuth();
@@ -64,17 +64,47 @@ export default function Header() {
                   </DropdownMenuItem>
                   {user && (
                     <>
-                      <DropdownMenuItem asChild>
-                        <Link href="/profile/appointments" className="w-full">
-                          <Calendar className="mr-2 h-4 w-4" />
-                          Lịch tư vấn của tôi
-                        </Link>
-                      </DropdownMenuItem>
+                      {!(
+                        (typeof user?.role === "string" &&
+                          (user.role === "admin" || user.role === "manager")) ||
+                        (typeof user?.role === "object" &&
+                          (user.role?.name === "admin" ||
+                            user.role?.name === "manager"))
+                      ) && (
+                        <DropdownMenuItem asChild>
+                          <Link href="/profile/appointments" className="w-full">
+                            <Calendar className="mr-2 h-4 w-4" />
+                            Lịch tư vấn của tôi
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
+                      {((typeof user?.role === "string" && user.role === "consultant") ||
+                        (typeof user?.role === "object" &&
+                          user.role?.name === "consultant")) && (
+                        <>
+                          <DropdownMenuItem asChild>
+                            <Link href="/consultant" className="w-full">
+                              <LayoutDashboard className="mr-2 h-4 w-4" />
+                              Dashboard tư vấn viên
+                            </Link>
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      {user.gender === "F" && (
+                        <DropdownMenuItem asChild>
+                          <Link href="/menstrual-tracker" className="w-full">
+                            <Calendar className="mr-2 h-4 w-4" />
+                            Theo dõi chu kỳ
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
                     </>
                   )}
-                  {((typeof user?.role === "string" && user.role === "admin") ||
+                  {((typeof user?.role === "string" &&
+                    (user.role === "admin" || user.role === "manager")) ||
                     (typeof user?.role === "object" &&
-                      user.role?.name === "admin")) && (
+                      (user.role?.name === "admin" ||
+                        user.role?.name === "manager"))) && (
                     <DropdownMenuItem asChild>
                       <Link href="/admin" className="w-full">
                         <User className="mr-2 h-4 w-4" />

@@ -11,21 +11,10 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 import { apiClient } from "@/services/api";
 import { API_ENDPOINTS } from "@/config/api";
+import { User } from "@/services/user.service"; // Import User from user.service
+import { ConsultantProfile } from "@/services/consultant.service"; // Import ConsultantProfile
 
-export interface User {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  fullName?: string;
-  role:
-    | string
-    | { id: string; name: string; description?: string; [key: string]: any };
-  profilePicture?: string;
-  phone?: string;
-  address?: string;
-  gender?: "M" | "F" | "O" | string;
-}
+export type { User };
 
 interface LoginResponse {
   user: User;
@@ -44,7 +33,7 @@ interface RefreshTokenResponse {
   refreshToken: string;
 }
 
-interface RegisterDto {
+export interface RegisterDto { // Export the interface
   email: string;
   password: string;
   firstName: string;
@@ -61,7 +50,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   isLoading: boolean;
   isAuthenticated: boolean;
-  setUser: (user: User | null) => void;
+  setUser: React.Dispatch<React.SetStateAction<User | null>>;
   setAccessToken: (accessToken: string) => void;
 }
 
@@ -225,11 +214,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       router.push("/auth/verify-email");
     } catch (error: any) {
-      console.error("[AuthContext] Registration error:", error);
+      console.error("[AuthContext] Registration error:", error); // Log the full error object
       let errorMessage = "Có lỗi xảy ra";
       if (error.response && error.response.data && error.response.data.message) {
         errorMessage = error.response.data.message;
-      } else if (error instanceof Error) {
+      } else if (error.message) { // Use error.message for generic errors
         errorMessage = error.message;
       }
       toast({

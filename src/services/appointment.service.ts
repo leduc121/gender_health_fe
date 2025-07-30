@@ -1,95 +1,57 @@
 import { API_ENDPOINTS } from "@/config/api";
-import { apiClient } from "./api";
-
-export interface Appointment {
-  id: string;
-  title?: string;
-  description?: string;
-  appointmentDate: string;
-  appointmentTime: string;
-  status: "scheduled" | "completed" | "cancelled" | "pending";
-  consultantId?: string;
-  consultant?: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    profilePicture?: string;
-    specialization?: string;
-  };
-  serviceIds?: string[];
-  service?: {
-    id: string;
-    name: string;
-    description?: string;
-    price?: number;
-  };
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
-  cancellationReason?: string;
-  // Thêm các trường khác từ API thực tế
-  userId?: string;
-  type?: string;
-  location?: string;
-  duration?: number;
-}
-
-export interface CreateAppointmentRequest {
-  consultantId?: string; // Make optional as it's not always required
-  serviceIds?: string[]; // Change to array of service IDs
-  appointmentDate: string; // This will now include both date and time in ISO format
-  notes?: string;
-  meetingLink?: string;
-  appointmentLocation?: string; // Make optional to match usage
-}
-
-export interface UpdateAppointmentStatusRequest {
-  status: "scheduled" | "completed" | "cancelled" | "pending";
-  cancellationReason?: string;
-}
+import { Appointment, PaginationResponse } from "@/types/api.d";
 
 export type AppointmentStatus =
-  | "scheduled"
-  | "completed"
-  | "cancelled"
   | "pending"
   | "confirmed"
-  | "no_show";
+  | "cancelled"
+  | "completed"
+  | "checked_in"
+  | "in_progress"
+  | "no_show"
+  | "rescheduled";
+
+export type { Appointment }; // Export Appointment type
+
+export interface CreateAppointmentRequest {
+  consultantId?: string;
+  serviceIds?: string[];
+  appointmentDate: string; // ISO 8601 format
+  notes?: string;
+  meetingLink?: string;
+  appointmentLocation: "online" | "office"; // Must be explicitly defined as per swagger
+}
+
+export interface GetAppointmentsQuery {
+  page?: number;
+  limit?: number;
+  userId?: string;
+  consultantId?: string;
+  status?: AppointmentStatus; // Use status from global Appointment type
+  fromDate?: string; // YYYY-MM-DD
+  toDate?: string; // YYYY-MM-DD
+  sortBy?: "appointmentDate" | "createdAt" | "updatedAt";
+  sortOrder?: "ASC" | "DESC";
+}
+
+export interface UpdateAppointmentDto {
+  status?: AppointmentStatus; // Make optional
+  meetingLink?: string;
+  chatRoomId?: string; // Add chatRoomId
+}
+
+export interface CancelAppointmentDto {
+  cancellationReason?: string;
+}
 
 export const AppointmentService = {
   // Lấy danh sách appointments của user hiện tại
-  getUserAppointments: async (): Promise<Appointment[]> => {
+  getUserAppointments: async (query?: GetAppointmentsQuery): Promise<PaginationResponse<Appointment>> => {
     try {
       console.log("[AppointmentService] Fetching current user appointments...");
-      // Gọi API /appointments. Backend sẽ xác định người dùng hiện tại từ token xác thực.
-      const response = await apiClient.get<any>(
-        API_ENDPOINTS.APPOINTMENTS.BASE
-      );
-
-      console.log(
-        "[AppointmentService] Raw API Response for current user appointments:",
-        response
-      );
-
-      let appointments: Appointment[] = [];
-      if (
-        response &&
-        typeof response.data === "object" &&
-        Array.isArray(response.data.data)
-      ) {
-        appointments = response.data.data;
-      } else if (response && Array.isArray(response.data)) {
-        appointments = response.data;
-      } else if (Array.isArray(response)) {
-        appointments = response;
-      }
-
-      console.log(
-        "[AppointmentService] Processed user appointments:",
-        appointments
-      );
-      return appointments;
+      const response = await apiClient.get<PaginationResponse<Appointment>>(API_ENDPOINTS.APPOINTMENTS.BASE, { params: query });
+      console.log("[AppointmentService] Raw API Response for current user appointments:", response);
+      return response; // The apiClient already returns the expected structure
     } catch (error: any) {
       console.error(
         "[AppointmentService] Error fetching user appointments:",
@@ -118,27 +80,14 @@ export const AppointmentService = {
   },
 
   // Lấy tất cả appointments (cho admin/consultant)
-  getAllAppointments: async (): Promise<Appointment[]> => {
+  getAllAppointments: async (query?: GetAppointmentsQuery): Promise<PaginationResponse<Appointment>> => {
     try {
       console.log("[AppointmentService] Fetching all appointments...");
-      const response = await apiClient.get<any>(
-        API_ENDPOINTS.APPOINTMENTS.BASE
-      );
-
-      let appointments: Appointment[] = [];
-      if (Array.isArray(response)) {
-        appointments = response;
-      } else if (response?.data && Array.isArray(response.data)) {
-        appointments = response.data;
-      }
-
-      return appointments;
+      const response = await apiClient.get<PaginationResponse<Appointment>>(API_ENDPOINTS.APPOINTMENTS.GET_ALL, { params: query });
+      return response; // The apiClient already returns the expected structure
     } catch (error) {
-      console.error(
-        "[AppointmentService] Error fetching all appointments:",
-        error
-      );
-      return [];
+      console.error("[AppointmentService] Error fetching all appointments:", error);
+      throw error;
     }
   },
 
@@ -146,10 +95,8 @@ export const AppointmentService = {
   getAppointmentById: async (id: string): Promise<Appointment | null> => {
     try {
       console.log("[AppointmentService] Fetching appointment by ID:", id);
-      const response = await apiClient.get<Appointment>(
-        `${API_ENDPOINTS.APPOINTMENTS.BASE}/${id}`
-      );
-      return response;
+      const response = await apiClient.get<Appointment>(`${API_ENDPOINTS.APPOINTMENTS.BASE}/${id}`);
+      return response; // The apiClient returns the Appointment object directly
     } catch (error) {
       console.error("[AppointmentService] Error fetching appointment:", error);
       return null;
@@ -162,29 +109,16 @@ export const AppointmentService = {
   ): Promise<Appointment> => {
     try {
       console.log("[AppointmentService] Creating appointment with data:", data);
-      // Log headers being sent
-      const accessToken =
-        typeof window !== "undefined"
-          ? localStorage.getItem("accessToken")
-          : null;
+      const accessToken = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
       console.log("[AppointmentService] Sending with headers:", {
         Authorization: `Bearer ${accessToken}`,
       });
 
-      const response = await apiClient.post<Appointment>(
-        API_ENDPOINTS.APPOINTMENTS.BASE,
-        data,
-        {
-          headers: accessToken
-            ? { Authorization: `Bearer ${accessToken}` }
-            : {},
-        }
-      );
-      console.log(
-        "[AppointmentService] Create appointment successful. Response:",
-        response
-      );
-      return response;
+      const response = await apiClient.post<Appointment>(API_ENDPOINTS.APPOINTMENTS.BASE, data, {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      });
+      console.log("[AppointmentService] Create appointment successful. Response:", response);
+      return response; // The apiClient returns the Appointment object directly
     } catch (error: any) {
       console.error("[AppointmentService] Error creating appointment:", error);
       if (error.response) {
@@ -210,37 +144,40 @@ export const AppointmentService = {
   },
 
   // Cập nhật trạng thái appointment
-  updateAppointmentStatus: async (
-    id: string,
-    data: UpdateAppointmentStatusRequest
-  ): Promise<Appointment> => {
+  updateAppointment: async (id: string, data: Partial<Appointment>): Promise<Appointment> => {
     try {
-      console.log(
-        "[AppointmentService] Updating appointment status:",
-        id,
-        data
-      );
-      const response = await apiClient.put<Appointment>(
-        API_ENDPOINTS.APPOINTMENTS.STATUS(id),
+      console.log("[AppointmentService] Updating appointment:", id, data);
+      const response = await apiClient.patch<Appointment>(
+        `${API_ENDPOINTS.APPOINTMENTS.BASE}/${id}`, // Assuming PATCH /appointments/{id} is the general update endpoint
         data
       );
       return response;
     } catch (error) {
-      console.error(
-        "[AppointmentService] Error updating appointment status:",
-        error
+      console.error("[AppointmentService] Error updating appointment:", error);
+      throw error;
+    }
+  },
+
+  // Cập nhật trạng thái appointment (giữ lại cho các trường hợp chỉ cập nhật trạng thái)
+  updateAppointmentStatus: async (id: string, data: UpdateAppointmentDto): Promise<Appointment> => {
+    try {
+      console.log("[AppointmentService] Updating appointment status:", id, data);
+      const response = await apiClient.patch<Appointment>(
+        API_ENDPOINTS.APPOINTMENTS.UPDATE_STATUS(id),
+        data
       );
+      return response; // The apiClient returns the Appointment object directly
+    } catch (error) {
+      console.error("[AppointmentService] Error updating appointment status:", error);
       throw error;
     }
   },
 
   // Hủy appointment
-  cancelAppointment: async (id: string, reason?: string): Promise<void> => {
+  cancelAppointment: async (id: string, data: CancelAppointmentDto): Promise<void> => {
     try {
-      console.log("[AppointmentService] Cancelling appointment:", id, reason);
-      await apiClient.patch(API_ENDPOINTS.APPOINTMENTS.CANCEL(id), {
-        cancellationReason: reason,
-      });
+      console.log("[AppointmentService] Cancelling appointment:", id, data);
+      await apiClient.patch<void>(API_ENDPOINTS.APPOINTMENTS.CANCEL(id), data);
     } catch (error) {
       console.error(
         "[AppointmentService] Error cancelling appointment:",
@@ -253,14 +190,9 @@ export const AppointmentService = {
   // Lấy chat room cho appointment
   getAppointmentChatRoom: async (id: string): Promise<any> => {
     try {
-      console.log(
-        "[AppointmentService] Getting chat room for appointment:",
-        id
-      );
-      const response = await apiClient.get<any>(
-        API_ENDPOINTS.APPOINTMENTS.CHAT_ROOM(id)
-      );
-      return response;
+      console.log("[AppointmentService] Getting chat room for appointment:", id);
+      const response = await apiClient.get<any>(API_ENDPOINTS.APPOINTMENTS.CHAT_ROOM(id));
+      return response; // The apiClient returns the response object directly
     } catch (error) {
       console.error("[AppointmentService] Error getting chat room:", error);
       throw error;
@@ -268,17 +200,20 @@ export const AppointmentService = {
   },
 
   // Utility methods
-  getStatusText: (status: AppointmentStatus): string => {
+  getStatusText: (status: Appointment["status"]): string => {
     switch (status) {
       case "pending":
         return "Chờ xác nhận";
       case "confirmed":
-      case "scheduled":
         return "Đã xác nhận";
       case "cancelled":
         return "Đã hủy";
       case "completed":
         return "Hoàn thành";
+      case "checked_in":
+        return "Đã check-in";
+      case "in_progress":
+        return "Đang tiến hành";
       case "no_show":
         return "Không có mặt";
       default:
@@ -286,8 +221,8 @@ export const AppointmentService = {
     }
   },
 
-  canCancel: (status: AppointmentStatus): boolean => {
-    return ["pending", "confirmed", "scheduled"].includes(status);
+  canCancel: (status: Appointment["status"]): boolean => {
+    return ["pending", "confirmed"].includes(status);
   },
 
   isPastAppointment: (appointmentDate: string): boolean => {

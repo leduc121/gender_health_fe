@@ -29,10 +29,10 @@ import StiStepper from "@/components/StiStepper";
 import StiServiceCard from "@/components/StiServiceCard";
 import StiSummarySidebar from "@/components/StiSummarySidebar";
 import AuthDialog from "@/components/AuthDialog"; // Import AuthDialog
-import { APIService, Service } from "@/services/service.service"; // Import APIService and Service
+import { APIService, Service } from "@/services/service.service"; // Import ServiceService and Service
 import { STITestingService } from "@/services/sti-testing.service"; // Import STITestingService
 import { CreateStiAppointmentDto, Appointment, FindAvailableSlotsDto, AvailableSlotDto } from "@/types/sti-appointment.d"; // Import new DTOs and types
-
+import { Shield } from "lucide-react";
 const steps = [
   "Chọn dịch vụ",
   "Xác nhận thông tin",
@@ -147,7 +147,7 @@ function SummarySidebar({
 }
 
 export default function STITestingPage() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [step, setStep] = useState(0);
   const [services, setServices] = useState<any[]>([]);
@@ -166,19 +166,36 @@ export default function STITestingPage() {
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlotDto | null>(null);
   const router = useRouter();
 
+  if (!isAuthenticated) {
+    return (
+      <div className="w-full max-w-2xl mx-auto text-center py-12">
+        <div className="bg-muted/50 rounded-lg p-8">
+          <Shield className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+          <h2 className="text-2xl font-bold mb-2">Yêu cầu đăng nhập</h2>
+          <p className="text-muted-foreground mb-6">
+            Vui lòng đăng nhập để sử dụng dịch vụ tư vấn trực tuyến
+          </p>
+          <AuthDialog
+            trigger={<Button variant="outline">Đăng nhập ngay</Button>}
+          />
+        </div>
+      </div>
+    );
+  }
+
   // Lấy danh sách dịch vụ STI
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const fetchedServices = await APIService.getStiServices(); // Use new getStiServices
-        if (Array.isArray(fetchedServices)) {
-          setServices(fetchedServices);
-        } else {
-          console.error("Expected fetchedServices to be an array but got:", fetchedServices);
-          setServices([]);
-        }
+        const response = await APIService.getAll();
+        const allServices = response.data;
+        const stiServices = allServices.filter(service =>
+          service.name.toLowerCase().includes("sti") ||
+          (service.type && service.type.toLowerCase().includes("sti")) // Assuming a 'type' field might exist for service classification
+        );
+        setServices(stiServices);
       } catch (error: any) {
-        console.error("Error fetching STI services:", error);
+        console.error("Error fetching all services for STI page:", error);
         toast({
           title: "Lỗi",
           description: "Không thể tải danh sách dịch vụ xét nghiệm STI.",
@@ -302,33 +319,14 @@ export default function STITestingPage() {
     setError("");
     try {
       const bookedResults: Appointment[] = [];
-      // When using available slots, typically you book one appointment per selected slot.
-      // If multiple services are selected, and one slot, it implies all services are for that one slot.
-      // The backend API needs to support this. Assuming for now, one appointment per service.
-      // If the backend expects one appointment object for all services in one slot,
-      // the loop structure might be adjusted, and CreateStiAppointmentDto
-      // would need to accept an array of stiServiceIds.
-      // For simplicity, let's assume each service needs its own appointment booking for the selected slot.
-
-      // However, the current CreateStiAppointmentDto only takes a single stiServiceId.
-      // If a single STI appointment can cover multiple services, the DTO and API call
-      // would need to be adjusted. For now, assuming each service is a separate appointment.
-      // But the original code was looping through serviceIds and calling createTest for each.
-      // If sti-appointments also works this way, then the loop is fine.
-
-      // The swagger definition for /sti-appointments POST only takes one stiServiceId.
-      // So if multiple services are selected, it means multiple appointments.
-      // We should pass the consultantId from the selected slot if available.
 
       const sampleCollectionDateTime = new Date(selectedSlot.dateTime);
-      // The `selectedSlot.dateTime` is already an ISO string or Date object.
-      // No need to parse time separately.
 
       for (const serviceId of selectedServiceIds) {
         const payload: CreateStiAppointmentDto = {
           stiServiceId: serviceId,
           sampleCollectionDate: sampleCollectionDateTime.toISOString(),
-          sampleCollectionLocation: "office", // Default, ideally from UI
+          sampleCollectionLocation: "online", // Default, ideally from UI
           notes: notes,
           consultantId: selectedSlot.consultant?.id, // Pass consultantId from selected slot
         };
@@ -353,7 +351,7 @@ export default function STITestingPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 flex flex-col md:flex-row gap-8 items-start">
-      <div className="flex-1 max-w-2xl min-h-[600px]">
+      <div className="flex-1 max-w-3xl min-h-[600px]">
         <StiStepper step={step} steps={steps} />
         {step === 0 && (
           <div>
@@ -361,14 +359,20 @@ export default function STITestingPage() {
               Chọn dịch vụ xét nghiệm STI
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-              {services.map((service) => (
-                <StiServiceCard
-                  key={service.id}
-                  service={service}
-                  selected={selectedServiceIds.includes(service.id)}
-                  onSelect={() => handleSelectService(service.id)}
-                />
-              ))}
+              {services.length > 0 ? (
+                services.map((service) => (
+                  <StiServiceCard
+                    key={service.id}
+                    service={service}
+                    selected={selectedServiceIds.includes(service.id)}
+                    onSelect={() => handleSelectService(service.id)}
+                  />
+                ))
+              ) : (
+                <p className="text-gray-500 col-span-full text-center">
+                  Không tìm thấy dịch vụ xét nghiệm STI nào.
+                </p>
+              )}
             </div>
             <div className="flex justify-end gap-4 mt-6">
               <Button disabled className="rounded-full px-8 py-3 text-lg">
@@ -534,23 +538,6 @@ export default function STITestingPage() {
             >
               Đặt thêm xét nghiệm khác
             </Button>
-          </div>
-        )}
-        {!user && (
-          <div className="text-center mt-12">
-            <h2 className="text-2xl font-bold mb-4 text-primary">
-              Yêu cầu đăng nhập
-            </h2>
-            <p className="mb-4">
-              Vui lòng đăng nhập để sử dụng dịch vụ tư vấn trực tuyến
-            </p>
-            <AuthDialog
-              trigger={
-                <Button className="btn-primary rounded-full px-8 py-3 text-lg shadow-lg">
-                  Đăng nhập ngay
-                </Button>
-              }
-            />
           </div>
         )}
       </div>

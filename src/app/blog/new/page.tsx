@@ -1,190 +1,272 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { BlogService } from "@/services/blog.service";
-import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { CategoryService, Category } from "@/services/category.service";
 import { useAuth } from "@/contexts/AuthContext";
+import { BlogService, CreateBlogData, Blog } from "@/services/blog.service"; // Import Blog interface
+import { Category, CategoryService } from "@/services/category.service";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useToast } from "@/components/ui/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import BlogCreateWithImage from "@/components/BlogCreateWithImage";
 
-export default function BlogNewPage() {
+export default function CreateBlogPage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [categoryId, setCategoryId] = useState("");
   const [tags, setTags] = useState("");
-  const [autoPublish, setAutoPublish] = useState(false); // Chỉ Admin/Manager mới thấy
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
-  const { user } = useAuth();
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadedImageId, setUploadedImageId] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [seoTitle, setSeoTitle] = useState("");
+  const [seoDescription, setSeoDescription] = useState("");
+  const [excerpt, setExcerpt] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showImageUploadModal, setShowImageUploadModal] = useState(false);
+  const [newlyCreatedBlogId, setNewlyCreatedBlogId] = useState<string | null>(null);
 
-  // TODO: Lấy role từ AuthContext
-  const canAutoPublish = true; // Thay bằng kiểm tra role thực tế
+  const { user } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
-    CategoryService.getAllCategories()
-      .then((data: any) => {
-        if (Array.isArray(data)) {
-          setCategories(data);
-        } else if (Array.isArray(data?.data)) {
-          setCategories(data.data);
-        } else {
-          setCategories([]);
+    const fetchCategories = async () => {
+      try {
+        const fetchedCategories = await CategoryService.getAllCategories();
+        if (fetchedCategories) {
+          setCategories(fetchedCategories);
         }
-      })
-      .catch(() => setCategories([]));
-  }, []);
+      } catch (err) {
+        setError("Không thể tải danh mục.");
+        toast({
+          title: "Lỗi",
+          description: "Không thể tải danh sách danh mục.",
+          variant: "destructive",
+        });
+      }
+    };
+    fetchCategories();
+  }, [toast]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
-    } else {
-      setSelectedFile(null);
-    }
+  const handleCategoryChange = (categoryId: string) => {
+    setSelectedCategory(categoryId);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError("");
-    if (!user?.id) {
-      setError("Không xác định được người dùng. Vui lòng đăng nhập lại.");
+    setError(null);
+
+    const tagsArray = tags.split(",").map((tag) => tag.trim()).filter(Boolean);
+
+    if (!title || !content || !selectedCategory || tagsArray.length === 0) {
+      toast({
+        title: "Lỗi",
+        description:
+          "Vui lòng điền đầy đủ các trường: Tiêu đề, Nội dung, Thẻ và chọn ít nhất một Danh mục.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!user) {
+      toast({
+        title: "Lỗi",
+        description: "Bạn cần đăng nhập để tạo bài viết.",
+        variant: "destructive",
+      });
       setLoading(false);
       return;
     }
-    try {
-      let featuredImageId: string | null = null;
-      if (selectedFile) {
-        // Upload image first
-        const uploadResponse = await BlogService.uploadBlogImage(selectedFile, user.id);
-        featuredImageId = uploadResponse.id; // Assuming the response contains the ID of the uploaded image
-      }
 
-      const tagArr = tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
-      if (!categoryId) {
-        setError("Bạn phải chọn chủ đề.");
-        setLoading(false);
-        return;
-      }
-      if (!title.trim() || !content.trim()) {
-        setError("Tiêu đề và nội dung không được để trống.");
-        setLoading(false);
-        return;
-      }
-      const payload: any = {
-        authorId: user.id,
-        title: title.trim(),
-        content: content.trim(),
-        categoryId,
-        tags: tagArr,
-        status: "draft",
-      };
-      if (featuredImageId) {
-        payload.featuredImage = featuredImageId;
-      }
-      if (canAutoPublish && autoPublish) payload.autoPublish = true;
-      Object.keys(payload).forEach(
-        (key) =>
-          (payload[key] === undefined || payload[key] === "") &&
-          key !== "tags" &&
-          delete payload[key]
-      );
-      console.log("Blog create payload:", payload);
-      await BlogService.create(payload);
-      router.push("/blog");
+    setLoading(true);
+
+    const isManagerOrAdmin = Boolean(
+      user.role &&
+        ['ADMIN', 'MANAGER'].includes(
+          (typeof user.role === 'string'
+            ? user.role
+            : user.role.name || ''
+          ).toUpperCase()
+        )
+    );
+
+    const blogStatus = isManagerOrAdmin ? "published" : "pending_review"; // Set status based on role
+
+    const payload: CreateBlogData = {
+      title,
+      content,
+      authorId: user.id,
+      tags: tagsArray,
+      categoryId: selectedCategory,
+      status: blogStatus, // Use the determined status
+      autoPublish: isManagerOrAdmin, // autoPublish is true only for Admin/Manager
+      seoTitle: seoTitle || title, // Fallback to title if seoTitle is empty
+      seoDescription: seoDescription,
+      excerpt: excerpt,
+      featuredImage: "", // No featured image on initial creation
+      relatedServicesIds: [],
+    };
+
+    try {
+      console.log("Submitting blog with payload:", payload);
+      const response = await BlogService.create(payload); // Capture the response
+      const createdBlogId = response.id; // Assuming the response contains the ID
+
+      toast({
+        title: "Thành công!",
+        description: isManagerOrAdmin
+          ? "Đã tạo và xuất bản blog mới thành công."
+          : "Đã tạo blog mới thành công và gửi đi duyệt.",
+      });
+
+      setNewlyCreatedBlogId(createdBlogId);
+      setShowImageUploadModal(true);
+
     } catch (err: any) {
-      const detail = Array.isArray(err?.error?.message)
-        ? err.error.message.join(", ")
-        : err?.error?.message || err?.message || "Đã có lỗi xảy ra";
-      setError(detail);
+      console.error("Failed to create blog:", err.response?.data || err);
+      const errorMessage =
+        err.response?.data?.message || "Tạo blog thất bại. Vui lòng thử lại.";
+      setError(errorMessage);
+      toast({
+        title: "Lỗi",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
+  const handleImageUploadSuccess = () => {
+    setShowImageUploadModal(false);
+    toast({
+      title: "Thành công!",
+      description: "Ảnh nổi bật đã được tải lên và gắn vào blog.",
+    });
+    router.push(`/?blogSubmitted=true`); // Redirect after image upload is complete
+  };
+
   return (
-    <div className="container mx-auto px-4 py-8 max-w-2xl">
-      <h1 className="text-2xl font-bold mb-6">Tạo blog mới</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-6">Tạo Blog Mới</h1>
+      <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label className="font-medium">Tiêu đề</label>
-          <input
-            className="w-full border rounded px-2 py-1 mt-1"
+          <Label htmlFor="title">Tiêu đề</Label>
+          <Input
+            id="title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            placeholder="Nhập tiêu đề blog..."
             required
+            disabled={loading}
           />
         </div>
         <div>
-          <label className="font-medium">Nội dung</label>
-          <textarea
-            className="w-full border rounded px-2 py-1 mt-1 min-h-[120px]"
+          <Label htmlFor="content">Nội dung</Label>
+          <Textarea
+            id="content"
             value={content}
             onChange={(e) => setContent(e.target.value)}
+            placeholder="Viết nội dung blog ở đây..."
             required
+            rows={10}
+            disabled={loading}
           />
         </div>
         <div>
-          <label className="font-medium">Chủ đề</label>
-          <select
-            className="w-full border rounded px-2 py-1 mt-1"
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            required
-          >
-            <option value="">Chọn chủ đề</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="font-medium">Tags (phân tách bởi dấu phẩy)</label>
-          <input
-            className="w-full border rounded px-2 py-1 mt-1"
+          <Label htmlFor="tags">Thẻ (cách nhau bởi dấu phẩy)</Label>
+          <Input
+            id="tags"
             value={tags}
             onChange={(e) => setTags(e.target.value)}
-            placeholder="giới tính, sức khỏe, tư vấn"
+            placeholder="ví dụ: sức khỏe, dinh dưỡng, thể thao"
+            required
+            disabled={loading}
           />
         </div>
-        {canAutoPublish && (
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={autoPublish}
-              onChange={(e) => setAutoPublish(e.target.checked)}
-              id="autoPublish"
-            />
-            <label htmlFor="autoPublish">
-              Tự động xuất bản (chỉ Admin/Manager)
-            </label>
-          </div>
-        )}
-        {error && <div className="text-red-500 text-sm">{error}</div>}
         <div>
-          <label className="font-medium">Ảnh nổi bật</label>
-          <input
-            type="file"
-            className="w-full border rounded px-2 py-1 mt-1"
-            accept="image/*"
-            onChange={handleFileChange}
+          <Label htmlFor="excerpt">Đoạn trích</Label>
+          <Textarea
+            id="excerpt"
+            value={excerpt}
+            onChange={(e) => setExcerpt(e.target.value)}
+            placeholder="Viết một đoạn trích ngắn gọn..."
+            rows={3}
+            disabled={loading}
           />
         </div>
-        {error && <div className="text-red-500 text-sm">{error}</div>}
-        <div className="flex justify-end">
-          <Button type="submit" disabled={loading}>
-            {loading ? "Đang lưu..." : "Tạo blog"}
-          </Button>
+        <div>
+          <Label htmlFor="seoTitle">Tiêu đề SEO</Label>
+          <Input
+            id="seoTitle"
+            value={seoTitle}
+            onChange={(e) => setSeoTitle(e.target.value)}
+            placeholder="Nhập tiêu đề SEO..."
+            disabled={loading}
+          />
         </div>
+        <div>
+          <Label htmlFor="seoDescription">Mô tả SEO</Label>
+          <Textarea
+            id="seoDescription"
+            value={seoDescription}
+            onChange={(e) => setSeoDescription(e.target.value)}
+            placeholder="Nhập mô tả SEO..."
+            rows={3}
+            disabled={loading}
+          />
+        </div>
+        <div>
+          <Label>Danh mục</Label>
+          <RadioGroup
+            value={selectedCategory}
+            onValueChange={handleCategoryChange}
+            className="space-y-2 mt-2"
+            disabled={loading}
+          >
+            {categories.map((category) => (
+              <div key={category.id} className="flex items-center space-x-2">
+                <RadioGroupItem value={category.id} id={category.id} />
+                <Label htmlFor={category.id} className="font-normal">
+                  {category.name}
+                </Label>
+              </div>
+            ))}
+          </RadioGroup>
+        </div>
+        
+        {error && <p className="text-red-500">{error}</p>}
+        
+        <Button type="submit" disabled={loading}>
+          {loading ? "Đang tạo..." : "Tạo Blog"}
+        </Button>
       </form>
+
+      {newlyCreatedBlogId && (
+        <Dialog open={showImageUploadModal} onOpenChange={setShowImageUploadModal}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Tải ảnh nổi bật lên</DialogTitle>
+              <DialogDescription>
+                Blog của bạn đã được tạo. Bây giờ hãy tải ảnh nổi bật lên cho blog này.
+              </DialogDescription>
+            </DialogHeader>
+            <BlogCreateWithImage
+              blogId={newlyCreatedBlogId}
+              onImageUploaded={handleImageUploadSuccess}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

@@ -51,7 +51,7 @@ async function getAvailableSlots({
     ...(endTime ? { endTime } : {}),
   };
   const res = await fetch(
-    "https://gender-healthcare.org/appointments/available-slots",
+    `${process.env.NEXT_PUBLIC_API_URL}/appointments/available-slots`,
     {
       method: "POST",
       headers: {
@@ -91,13 +91,12 @@ export default function AppointmentsPage() {
   useEffect(() => {
     console.log("[AppointmentsPage] Fetching services from APIService.getAll()");
     setLoadingServices(true);
-    APIService.getAll() // Changed from PackageServiceService.getAll() to APIService.getAll()
-      .then((res: Service[]) => { // Expected type is now Service[]
-        console.log("[AppointmentsPage] Received response from APIService.getAll():", res);
-        if (Array.isArray(res)) {
-          setServices(res);
+    APIService.getAll()
+      .then(({ data }) => {
+        if (Array.isArray(data)) {
+          setServices(data);
         } else {
-          console.error("[AppointmentsPage] Expected an array from APIService.getAll(), but received:", res);
+          console.error("[AppointmentsPage] Expected an array from APIService.getAll(), but received:", data);
           setServices([]);
         }
       })
@@ -107,12 +106,12 @@ export default function AppointmentsPage() {
       })
       .finally(() => {
         setLoadingServices(false);
-        console.log("[AppointmentsPage] Finished fetching services.");
       });
   }, []);
 
   useEffect(() => {
     if (!loadingServices && services.length > 0) {
+    
       const serviceIdFromUrl = searchParams.get("serviceId"); // Use "serviceId" as parameter name
       if (serviceIdFromUrl) {
         // Find Service directly by its ID
@@ -136,9 +135,11 @@ export default function AppointmentsPage() {
       }
     }
   }, [loadingServices, services, searchParams, toast]);
+  
 
   const selectedServices = services
     .filter((s) => selectedServiceIds.includes(s.id)); // No longer need to map s.service
+
 
   const needsConsultant = selectedServices.some((s) => s.requiresConsultant);
 
@@ -162,8 +163,6 @@ export default function AppointmentsPage() {
       }
       // mappedServiceIds directly uses selectedServiceIds since they are already service IDs
       const mappedServiceIds = selectedServiceIds;
-
-      console.log("serviceIds gửi lên:", mappedServiceIds);
 
       getAvailableSlots({
         serviceIds: mappedServiceIds,
@@ -238,6 +237,7 @@ export default function AppointmentsPage() {
       return;
     }
 
+
     try {
       const firstSelectedService = services.find((s) => selectedServiceIds.includes(s.id));
       const isStiService = firstSelectedService?.type === 'STI_TEST'; // Giả định có trường `type` để phân biệt dịch vụ STI
@@ -269,21 +269,20 @@ export default function AppointmentsPage() {
         const sampleCollectionLocation: "office" = "office"; // STI tests are typically at an office
 
         const stiAppointmentData = {
-          stiServiceId: firstSelectedService.id, // Use id directly from Service
-          consultantId: selectedSlot?.consultant?.id, // Có thể có tư vấn viên cho STI
+          stiServiceId: firstSelectedService.id,
+          consultantId: selectedSlot?.consultant?.id,
           sampleCollectionDate,
           sampleCollectionLocation,
           notes,
         };
 
-        console.log("STI Appointment Data gửi lên:", stiAppointmentData);
         await STITestingService.createStiAppointment(stiAppointmentData);
 
       } else {
         // Handle General Appointment
         let appointmentDate = "";
         let consultantId: string | undefined = undefined;
-        let appointmentLocation = needsConsultant ? "online" : "office";
+        const appointmentLocation: "online" = "online"; // Default to online as per user feedback
 
         if (needsConsultant) {
           appointmentDate = selectedSlot.dateTime;
@@ -311,14 +310,13 @@ export default function AppointmentsPage() {
         }
 
         const generalAppointmentData = {
-          serviceIds: selectedServiceIds, // selectedServiceIds now directly holds Service IDs
+          serviceIds: selectedServiceIds,
           consultantId,
           appointmentDate,
           appointmentLocation,
           notes,
         };
 
-        console.log("General Appointment Data gửi lên:", generalAppointmentData);
         await AppointmentService.createAppointment(generalAppointmentData);
       }
 
@@ -347,6 +345,34 @@ export default function AppointmentsPage() {
       });
     }
   };
+  
+  // Refactored handler for service selection
+  const handleServiceSelect = (item: Service) => {
+    const isStiServiceType = item.type === 'STI_TEST';
+    const hasStiServiceSelected = selectedServices.some(s => s.type === 'STI_TEST');
+
+    if (isStiServiceType) {
+      // If an STI service is clicked, it becomes the only selected service, or deselects if already selected.
+      setSelectedServiceIds(prev =>
+        prev.includes(item.id) ? [] : [item.id]
+      );
+    } else if (hasStiServiceSelected) {
+      // If an STI service is already selected, prevent selecting any other type of service.
+      toast({
+        title: "Lưu ý",
+        description: "Bạn không thể chọn dịch vụ khác khi đã chọn dịch vụ xét nghiệm STI.",
+        variant: "default",
+      });
+    } else {
+      // For general services, allow multiple selections.
+      setSelectedServiceIds((prev) =>
+        prev.includes(item.id)
+          ? prev.filter((id) => id !== item.id)
+          : [...prev, item.id]
+      );
+    }
+  };
+
 
   // Phân quyền: chỉ Customer mới đặt được lịch (giả sử user?.role === 'customer')
   // const canBook = user?.role === 'customer';
@@ -363,9 +389,9 @@ export default function AppointmentsPage() {
             {selectedServices.map((service) => (
               <li key={service.id} className="mb-1">
                 <span className="text-primary font-medium">{service.name}</span>
-                {service.price && (
+                {service.price !== null && (
                   <span className="ml-2 text-green-700">
-                    ({service.price} VNĐ)
+                    ({service.price.toLocaleString()} VNĐ)
                   </span>
                   )}
                 {service.requiresConsultant && (
@@ -399,7 +425,7 @@ export default function AppointmentsPage() {
         )}
         <div>
           <span className="font-semibold">Nơi chốn:</span>{" "}
-          {needsConsultant ? "Online" : "Tại cơ sở"}
+          Online
         </div>
         {notes && (
           <div>
@@ -412,7 +438,7 @@ export default function AppointmentsPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-10">
-      <h1 className="text-4xl md:text-5xl font-extrabold text-primary drop-shadow-sm tracking-tight mb-10">
+      <h1 className="text-4xl md:text-5xl font-extrabold text-primary drop-shadow-sm tracking-tight mb-10" aria-label="Đặt lịch hẹn">
         <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
           Đặt lịch hẹn
         </span>
@@ -427,47 +453,33 @@ export default function AppointmentsPage() {
               {/* Bước 1: Chọn dịch vụ */}
               {step === 1 && (
                 <div>
-                  <h2 className="text-xl font-bold mb-4">1. Chọn dịch vụ</h2>
+                  <h2 className="text-xl font-bold mb-4" aria-label="Bước 1: Chọn dịch vụ">1. Chọn dịch vụ</h2>
                   {loadingServices ? (
-                    <div className="text-center py-8">Đang tải dịch vụ...</div>
+                    <div className="text-center py-8" role="status" aria-live="polite">Đang tải dịch vụ...</div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {services.map((item) => (
                         <div
                           key={item.id}
                           className={`rounded-xl border p-4 flex flex-col gap-2 shadow-sm transition cursor-pointer hover:border-primary ${selectedServiceIds.includes(item.id) ? "border-primary bg-primary/5" : ""}`}
-                          onClick={() => {
-                            const isStiServiceType = item.type === 'STI_TEST'; // Access type directly from Service
-                            const hasStiServiceSelected = selectedServices.some(s => s.type === 'STI_TEST');
-
-                            if (isStiServiceType) {
-                              // If it's an STI service, only allow selecting this one
-                              setSelectedServiceIds(prev =>
-                                prev.includes(item.id) ? [] : [item.id]
-                              );
-                            } else if (hasStiServiceSelected) {
-                              // If an STI service is already selected, don't allow selecting other services
-                              toast({
-                                title: "Lưu ý",
-                                description: "Bạn không thể chọn dịch vụ khác khi đã chọn dịch vụ xét nghiệm STI.",
-                                variant: "default",
-                              });
-                            } else {
-                              // For non-STI services, allow multiple selections
-                              setSelectedServiceIds((prev) =>
-                                prev.includes(item.id)
-                                  ? prev.filter((id) => id !== item.id)
-                                  : [...prev, item.id]
-                              );
+                          onClick={() => handleServiceSelect(item)}
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              handleServiceSelect(item);
                             }
                           }}
+                          role="checkbox"
+                          aria-checked={selectedServiceIds.includes(item.id)}
+                          aria-label={`Chọn dịch vụ ${item.name}`}
                         >
                           <div className="flex items-center gap-2">
                             <Checkbox
                               checked={selectedServiceIds.includes(item.id)}
+                              aria-hidden="true" // Checkbox is visually present, but its state is controlled by the parent div's click/keydown
                             />
                             <span className="font-semibold text-lg text-primary">
-                              {item.name} {/* Access name directly from Service */}
+                              {item.name}
                             </span>
                             {item.requiresConsultant && (
                               <Badge
@@ -479,13 +491,13 @@ export default function AppointmentsPage() {
                             )}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {item.description} {/* Access description directly from Service */}
+                            {item.description}
                           </div>
                           <div className="flex flex-wrap gap-2 text-xs mt-1">
                             <span className="inline-block bg-green-100 text-green-800 px-2 py-0.5 rounded">
                               Giá:{" "}
-                              {item.price
-                                ? `${item.price} VNĐ`
+                              {item.price !== null
+                                ? `${item.price.toLocaleString()} VNĐ`
                                 : "Miễn phí"}
                             </span>
                           </div>
@@ -498,6 +510,7 @@ export default function AppointmentsPage() {
                       size="lg"
                       onClick={() => setStep(2)}
                       disabled={selectedServiceIds.length === 0}
+                      aria-label="Tiếp tục đến bước chọn ngày"
                     >
                       Tiếp tục
                     </Button>
@@ -507,7 +520,7 @@ export default function AppointmentsPage() {
               {/* Bước 2: Chọn ngày */}
               {step === 2 && (
                 <div>
-                  <h2 className="text-xl font-bold mb-4">2. Chọn ngày</h2>
+                  <h2 className="text-xl font-bold mb-4" aria-label="Bước 2: Chọn ngày">2. Chọn ngày</h2>
                   <div className="flex flex-col md:flex-row gap-8">
                     <div>
                       <DayPicker
@@ -518,7 +531,6 @@ export default function AppointmentsPage() {
                         modifiers={{
                           available: (date) => {
                             if (needsConsultant && availableSlots.length > 0) {
-                              // Chỉ enable ngày có slot khả dụng
                               return availableSlots.some((slot) => {
                                 const slotDate = new Date(slot.dateTime);
                                 return (
@@ -529,27 +541,21 @@ export default function AppointmentsPage() {
                                 );
                               });
                             }
-                            // Nếu không cần tư vấn viên, enable mọi ngày từ hôm nay
                             return true;
                           },
                         }}
                         modifiersClassNames={{
-                          // Apply styles from the image
                           selected: "bg-primary text-white rounded-lg",
                           today: "border border-primary rounded-lg",
-                          // Make days that are not available look disabled
-                          outside: "text-muted-foreground opacity-50", // Style for days outside the current month
-                          // Style for available days matching the image
-                          day: "hover:bg-primary/10 rounded-lg", // Apply hover and base styling to all days
+                          outside: "text-muted-foreground opacity-50",
+                          day: "hover:bg-primary/10 rounded-lg",
                         }}
                         disabled={(date) => {
                           const today = new Date();
                           today.setHours(0, 0, 0, 0);
-                          // Disable past dates
                           if (date < today) return true;
 
                           if (needsConsultant && availableSlots.length > 0) {
-                            // Disable dates without available slots for consultants
                             return !availableSlots.some((slot) => {
                               const slotDate = new Date(slot.dateTime);
                               return (
@@ -559,11 +565,11 @@ export default function AppointmentsPage() {
                               );
                             });
                           }
-                          // If no consultant needed, all future dates are available
                           return false;
                         }}
                         className="rounded-2xl border shadow-lg p-4 bg-white"
                         showOutsideDays
+                        aria-label="Chọn ngày hẹn"
                       />
                     </div>
                     <div className="flex-1 flex flex-col gap-4 justify-center">
@@ -571,7 +577,7 @@ export default function AppointmentsPage() {
                         Ngày đã chọn:{" "}
                         <span className="font-semibold text-primary">
                           {selectedDate
-                            ? selectedDate.toLocaleDateString("vi-VN") // Format for Vietnamese locale
+                            ? selectedDate.toLocaleDateString("vi-VN")
                             : "Chưa chọn"}
                         </span>
                       </div>
@@ -580,6 +586,7 @@ export default function AppointmentsPage() {
                           variant="outline"
                           size="lg"
                           onClick={() => setStep(1)}
+                          aria-label="Quay lại bước chọn dịch vụ"
                         >
                           Quay lại
                         </Button>
@@ -587,6 +594,7 @@ export default function AppointmentsPage() {
                           size="lg"
                           onClick={() => setStep(3)}
                           disabled={!selectedDate}
+                          aria-label="Tiếp tục đến bước chọn khung giờ và tư vấn viên"
                         >
                           Tiếp tục
                         </Button>
@@ -598,13 +606,13 @@ export default function AppointmentsPage() {
               {/* Bước 3: Chọn giờ & tư vấn viên */}
               {step === 3 && (
                 <div>
-                  <h2 className="text-xl font-bold mb-4">
+                  <h2 className="text-xl font-bold mb-4" aria-label="Bước 3: Chọn khung giờ và tư vấn viên">
                     3. Chọn khung giờ & tư vấn viên
                   </h2>
                   {needsConsultant ? (
                     <div>
                       {loadingSlots ? (
-                        <div className="text-center py-8">Đang tải slot...</div>
+                        <div className="text-center py-8" role="status" aria-live="polite">Đang tải slot...</div>
                       ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {(() => {
@@ -616,8 +624,6 @@ export default function AppointmentsPage() {
                               return slotDateLocal === selectedDateLocal;
                             });
 
-                            // Group slots by time
-                            // Helper function for consistent time string
                             const formatTimeKey = (date: Date): string => {
                               const hour = date.getHours().toString().padStart(2, '0');
                               const minute = date.getMinutes().toString().padStart(2, '0');
@@ -625,7 +631,6 @@ export default function AppointmentsPage() {
                             };
 
                             const groupedSlots = filteredSlots.reduce((acc: any, slot) => {
-                              // Normalize the date to strip seconds, milliseconds, and ensure consistent timezone handling for grouping
                               const dateObj = new Date(slot.dateTime);
                               const normalizedDate = new Date(
                                 dateObj.getFullYear(),
@@ -634,7 +639,7 @@ export default function AppointmentsPage() {
                                 dateObj.getHours(),
                                 dateObj.getMinutes()
                               );
-                              const timeKey = formatTimeKey(normalizedDate); // This will be "HH:MM"
+                              const timeKey = formatTimeKey(normalizedDate);
 
                               if (!acc[timeKey]) {
                                 acc[timeKey] = {
@@ -649,43 +654,47 @@ export default function AppointmentsPage() {
                             }, {});
 
                             const sortedGroupedSlots = Object.values(groupedSlots).sort((a: any, b: any) => {
-                              // Parse time strings for sorting
                               const [aHour, aMinute] = a.displayTime.split(':').map(Number);
                               const [bHour, bMinute] = b.displayTime.split(':').map(Number);
                               if (aHour !== bHour) return aHour - bHour;
                               return aMinute - bMinute;
                             });
 
-                            return sortedGroupedSlots.map((group: any) => (
-                              <label
-                                key={group.displayTime} // Key by the canonical time string
-                                className={`flex items-center gap-4 p-4 border rounded-xl shadow-sm cursor-pointer transition hover:border-primary ${
-                                  selectedSlot &&
-                                  formatTimeKey(new Date(selectedSlot.dateTime)) === group.displayTime
-                                    ? "border-primary bg-primary/5"
-                                    : ""
-                                }`}
-                              >
-                                <input
-                                  type="radio"
-                                  name="slot"
-                                  checked={Boolean(
-                                    selectedSlot &&
-                                    formatTimeKey(new Date(selectedSlot.dateTime)) === group.displayTime
-                                  )}
-                                  onChange={() => setSelectedSlot(group.originalSlots[0])} // Select the first original slot from the group
-                                  className="accent-primary w-5 h-5"
-                                />
-                                <div className="flex-1">
-                                  <div className="font-semibold text-lg text-primary">
-                                    {group.displayTime}
+                            return sortedGroupedSlots.map((group: any) => {
+                               const isSlotSelected = selectedSlot && formatTimeKey(new Date(selectedSlot.dateTime)) === group.displayTime;
+                               return (
+                                <label
+                                  key={group.displayTime}
+                                  className={`flex items-center gap-4 p-4 border rounded-xl shadow-sm cursor-pointer transition hover:border-primary ${
+                                    isSlotSelected ? "border-primary bg-primary/5" : ""
+                                  }`}
+                                  tabIndex={0}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      setSelectedSlot(group.originalSlots[0]);
+                                    }
+                                  }}
+                                  aria-label={`Chọn khung giờ ${group.displayTime} còn ${group.totalRemainingSlots} slot`}
+                                >
+                                  <input
+                                    type="radio"
+                                    name="slot"
+                                    checked={Boolean(isSlotSelected)}
+                                    onChange={() => setSelectedSlot(group.originalSlots[0])}
+                                    className="accent-primary w-5 h-5"
+                                    aria-hidden="true" // Radio button is visually present, but its state is controlled by the parent label's click/keydown
+                                  />
+                                  <div className="flex-1">
+                                    <div className="font-semibold text-lg text-primary">
+                                      {group.displayTime}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">
+                                      Còn {group.totalRemainingSlots} slot
+                                    </div>
                                   </div>
-                                  <div className="text-sm text-muted-foreground">
-                                    Còn {group.totalRemainingSlots} slot
-                                  </div>
-                                </div>
-                              </label>
-                            ));
+                                </label>
+                              )
+                            });
                           })()}
                         </div>
                       )}
@@ -694,6 +703,7 @@ export default function AppointmentsPage() {
                           variant="outline"
                           size="lg"
                           onClick={() => setStep(2)}
+                          aria-label="Quay lại bước chọn ngày"
                         >
                           Quay lại
                         </Button>
@@ -701,6 +711,7 @@ export default function AppointmentsPage() {
                           size="lg"
                           onClick={() => setStep(4)}
                           disabled={!selectedSlot}
+                          aria-label="Tiếp tục đến bước ghi chú và xác nhận"
                         >
                           Tiếp tục
                         </Button>
@@ -709,12 +720,12 @@ export default function AppointmentsPage() {
                   ) : (
                     <div>
                       <div className="mb-4">
-                        <label className="font-medium">Chọn giờ</label>
+                        <label className="font-medium" htmlFor="time-select">Chọn giờ</label>
                         <Select
                           value={selectedTime}
                           onValueChange={setSelectedTime}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger id="time-select" aria-label="Chọn giờ hẹn">
                             <SelectValue placeholder="Chọn giờ" />
                           </SelectTrigger>
                           <SelectContent>
@@ -732,6 +743,7 @@ export default function AppointmentsPage() {
                           variant="outline"
                           size="lg"
                           onClick={() => setStep(2)}
+                          aria-label="Quay lại bước chọn ngày"
                         >
                           Quay lại
                         </Button>
@@ -739,6 +751,7 @@ export default function AppointmentsPage() {
                           size="lg"
                           onClick={() => setStep(4)}
                           disabled={!selectedTime}
+                          aria-label="Tiếp tục đến bước ghi chú và xác nhận"
                         >
                           Tiếp tục
                         </Button>
@@ -747,19 +760,20 @@ export default function AppointmentsPage() {
                   )}
                 </div>
               )}
-              {/* Bước 4: Xác nhận */}
               {/* Bước 4: Ghi chú và xác nhận */}
               {step === 4 && (
                 <div>
-                  <h2 className="text-xl font-bold mb-4">
+                  <h2 className="text-xl font-bold mb-4" aria-label="Bước 4: Ghi chú và Xác nhận">
                     4. Ghi chú và Xác nhận
                   </h2>
                   <div className="mb-4">
-                    <label className="font-medium">Ghi chú</label>
+                    <label className="font-medium" htmlFor="notes-textarea">Ghi chú</label>
                     <Textarea
+                      id="notes-textarea"
                       placeholder="Nhập ghi chú cho buổi hẹn..."
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
+                      aria-label="Ghi chú cho buổi hẹn"
                     />
                   </div>
                   <div className="flex gap-4 mt-8">
@@ -767,10 +781,15 @@ export default function AppointmentsPage() {
                       variant="outline"
                       size="lg"
                       onClick={() => setStep(3)}
+                      aria-label="Quay lại bước chọn khung giờ và tư vấn viên"
                     >
                       Quay lại
                     </Button>
-                    <Button size="lg" onClick={handleBookAppointment}>
+                    <Button
+                      size="lg"
+                      onClick={handleBookAppointment}
+                      aria-label="Xác nhận đặt lịch hẹn"
+                    >
                       Xác nhận đặt lịch
                     </Button>
                   </div>
@@ -778,17 +797,21 @@ export default function AppointmentsPage() {
               )}
               {/* Bước 5: Thông báo kết quả */}
               {step === 5 && booking && (
-                <div className="space-y-4 text-center">
-                  <h2 className="text-2xl font-bold text-green-600">
+                <div className="space-y-4 text-center" role="status" aria-live="polite">
+                  <h2 className="text-2xl font-bold text-green-600" aria-label={booking.success ? "Đặt lịch thành công!" : "Đặt lịch thất bại"}>
                     {booking.success
                       ? "Đặt lịch thành công!"
                       : "Đặt lịch thất bại"}
                   </h2>
                   <p>{booking.message}</p>
-                  <Button size="lg" onClick={() => {
-                    setStep(1);
-                    setBooking(null); // Reset booking state
-                  }}>
+                  <Button
+                    size="lg"
+                    onClick={() => {
+                      setStep(1);
+                      setBooking(null);
+                    }}
+                    aria-label="Đặt lịch mới"
+                  >
                     Đặt lịch mới
                   </Button>
                 </div>
@@ -796,9 +819,8 @@ export default function AppointmentsPage() {
             </CardContent>
           </Card>
         </div>
-        {/* Cột phải: tóm tắt thông tin */}
         <div className="w-full md:w-96 flex-shrink-0">
-          {step !== 5 && summary} /* Hide summary on success/failure page */
+          {step !== 5 && summary}
         </div>
       </div>
     </div>

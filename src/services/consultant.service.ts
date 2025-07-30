@@ -1,5 +1,11 @@
 import { apiClient } from "./api";
 import { API_ENDPOINTS } from "@/config/api";
+import { format } from "date-fns";
+
+export const registerConsultant = async (formData: FormData) => {
+  const response = await apiClient.post(API_ENDPOINTS.CONSULTANTS.REGISTER, formData);
+  return response;
+};
 
 export interface UserProfile {
   id: string;
@@ -12,19 +18,21 @@ export interface UserProfile {
 
 export interface ConsultantProfile {
   id: string;
-  userId: string;
-  firstName: string; // Keep for direct access if needed, but primary source is user.firstName
-  lastName: string;  // Keep for direct access if needed, but primary source is user.lastName
   specialties: string[];
   qualification: string;
   experience: string;
   bio: string;
   consultationFee: number;
+  consultationFeeType: "hourly" | "per_session" | "per_service";
+  sessionDurationMinutes: number;
   isAvailable: boolean;
-  rating: number;
-  avatar: string; // This might be consultantProfile.user.profilePicture or similar
-  availability: ConsultantAvailability[];
-  user: UserProfile; // Added user profile
+  profileStatus: "active" | "on_leave" | "training" | "inactive" | "pending_approval" | "rejected";
+  languages: string[];
+  consultationTypes: ("online" | "office")[];
+  createdAt: string;
+  updatedAt: string;
+  user: UserProfile;
+  rating?: number;
 }
 
 export interface ConsultantAvailability {
@@ -37,36 +45,165 @@ export interface ConsultantAvailability {
   location: string;
   recurring: boolean;
   specificDate: string;
+  serviceId: string; // Added serviceId
+  meetingLink?: string; // Added meetingLink
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
   consultantProfile: ConsultantProfile;
 }
 
-export const ConsultantService = {
-  async getAll(): Promise<ConsultantProfile[]> {
-    // apiClient.get returns the data directly, which might be an object with a 'data' property
-    const apiResponse = await apiClient.get<any>(API_ENDPOINTS.CONSULTANTS.AVAILABILITY);
-    const availabilityData: ConsultantAvailability[] = Array.isArray(apiResponse.data) ? apiResponse.data : [];
+export interface GetConsultantsQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+  specialties?: string;
+  minConsultationFee?: number;
+  maxConsultationFee?: number;
+  consultationTypes?: "online" | "office";
+  status?: "active" | "on_leave" | "training" | "inactive" | "pending_approval" | "rejected";
+  isAvailable?: boolean;
+  minRating?: number;
+  sortBy?: "rating" | "consultationFee" | "specialties" | "consultationTypes" | "status" | "isAvailable" | "createdAt" | "updatedAt";
+  sortOrder?: "ASC" | "DESC";
+}
 
-    const uniqueConsultantsMap = new Map<string, ConsultantProfile>();
-    availabilityData.forEach((availability: ConsultantAvailability) => {
-      if (availability.consultantProfile && availability.consultantProfile.user) {
-        // Ensure userId is correctly set from user.id
-        const consultant = {
-          ...availability.consultantProfile,
-          userId: availability.consultantProfile.user.id,
-        };
-        uniqueConsultantsMap.set(consultant.id, consultant);
-      }
-    });
-    return Array.from(uniqueConsultantsMap.values());
+export interface UpdateConsultantProfileDto {
+  userId?: string;
+  specialties?: string[];
+  qualification?: string;
+  experience?: string;
+  bio?: string;
+  consultationFee?: number;
+  consultationFeeType?: "hourly" | "per_session" | "per_service";
+  sessionDurationMinutes?: number;
+  isAvailable?: boolean;
+  profileStatus?: "active" | "on_leave" | "training" | "inactive" | "pending_approval" | "rejected";
+  languages?: string[];
+  consultationTypes?: ("online" | "office")[];
+}
+
+// This comment is added to trigger a recompile and ensure the latest code is used.
+export const ConsultantService = {
+  async getAll(query?: GetConsultantsQuery): Promise<{ data: ConsultantProfile[]; total: number }> {
+    try {
+      // Ensure that only active and available consultants are fetched by default
+      const defaultQuery = {
+        ...query,
+        status: "active", // Filter by active status
+        isAvailable: true, // Filter by available status
+      };
+      const response = await apiClient.get<{ data: ConsultantProfile[]; total: number }>(API_ENDPOINTS.CONSULTANTS.GET_ALL, { params: defaultQuery });
+      return response;
+    } catch (error) {
+      console.error("[ConsultantService] Error fetching consultants:", error);
+      throw error;
+    }
   },
-  async getAvailability(consultantId: string, date: Date) {
-    const dayOfWeek = date.getDay(); // 0 for Sunday, 1 for Monday, etc.
-    let endpoint = `${API_ENDPOINTS.CONSULTANTS.AVAILABILITY}?consultantId=${consultantId}&dayOfWeek=${dayOfWeek}`;
-    const response = await apiClient.get<ConsultantAvailability[]>(endpoint);
-    console.log("ConsultantService.getAvailability Raw Response:", response); // Added log
+  async findConsultantAvailableSlots(consultantId: string, date: Date, serviceId?: string) {
+    const formattedDate = format(date, "yyyy-MM-dd");
+    const data: any = {
+      consultantId: consultantId,
+      startDate: formattedDate,
+      endDate: formattedDate, // For a single day, set endDate to be the same as startDate
+    };
+
+    if (serviceId) {
+      data.serviceIds = [serviceId];
+    }
+
+    const response = await apiClient.post<any>(API_ENDPOINTS.APPOINTMENTS.AVAILABLE_SLOTS, data);
+    console.log("ConsultantService.findConsultantAvailableSlots Raw Response:", response);
     return response;
+  },
+
+  async approveConsultant(id: string): Promise<ConsultantProfile> {
+    try {
+      const response = await apiClient.patch<ConsultantProfile>(API_ENDPOINTS.CONSULTANTS.APPROVE(id));
+      return response;
+    } catch (error) {
+      console.error(`Error approving consultant ${id}:`, error);
+      throw error;
+    }
+  },
+
+  async rejectConsultant(id: string, reason: string): Promise<ConsultantProfile> {
+    try {
+      const response = await apiClient.patch<ConsultantProfile>(API_ENDPOINTS.CONSULTANTS.REJECT(id), { reason });
+      return response;
+    } catch (error) {
+      console.error(`Error rejecting consultant ${id}:`, error);
+      throw error;
+    }
+  },
+
+  async updateWorkingHours(id: string, workingHours: any): Promise<ConsultantProfile> {
+    try {
+      const response = await apiClient.patch<ConsultantProfile>(API_ENDPOINTS.CONSULTANTS.UPDATE_WORKING_HOURS(id), { workingHours });
+      return response;
+    } catch (error) {
+      console.error(`Error updating working hours for consultant ${id}:`, error);
+      throw error;
+    }
+  },
+
+  async generateSchedule(id: string, weeksToGenerate: number): Promise<ConsultantProfile> {
+    try {
+      const response = await apiClient.post<ConsultantProfile>(API_ENDPOINTS.CONSULTANTS.GENERATE_SCHEDULE(id), { weeksToGenerate });
+      return response;
+    } catch (error) {
+      console.error(`Error generating schedule for consultant ${id}:`, error);
+      throw error;
+    }
+  },
+
+  async ensureUpcomingSchedule(id: string): Promise<ConsultantProfile> {
+    try {
+      const response = await apiClient.post<ConsultantProfile>(API_ENDPOINTS.CONSULTANTS.ENSURE_UPCOMING_SCHEDULE(id));
+      return response;
+    } catch (error) {
+      console.error(`Error ensuring upcoming schedule for consultant ${id}:`, error);
+      throw error;
+    }
+  },
+
+  async getPendingConsultants(): Promise<ConsultantProfile[]> {
+    try {
+      const response = await apiClient.get<ConsultantProfile[]>(API_ENDPOINTS.CONSULTANTS.PENDING_APPROVAL);
+      return response;
+    } catch (error) {
+      console.error("[ConsultantService] Error fetching pending consultants:", error);
+      throw error;
+    }
+  },
+
+  async createConsultant(data: any): Promise<ConsultantProfile> {
+    try {
+      const response = await apiClient.post<ConsultantProfile>(API_ENDPOINTS.CONSULTANTS.REGISTER, data);
+      return response;
+    } catch (error) {
+      console.error("Error creating consultant:", error);
+      throw error;
+    }
+  },
+
+  async getConsultantProfile(id: string): Promise<ConsultantProfile> {
+    try {
+      const response = await apiClient.get<ConsultantProfile>(`${API_ENDPOINTS.CONSULTANTS.BASE}/${id}`);
+      return response;
+    } catch (error) {
+      console.error(`Error fetching consultant profile ${id}:`, error);
+      throw error;
+    }
+  },
+
+  async updateMyProfile(payload: UpdateConsultantProfileDto): Promise<ConsultantProfile> {
+    try {
+      const response = await apiClient.put<ConsultantProfile>(API_ENDPOINTS.CONSULTANTS.UPDATE_MY_PROFILE, payload);
+      return response;
+    } catch (error) {
+      console.error("Error updating consultant profile:", error);
+      throw error;
+    }
   },
 };

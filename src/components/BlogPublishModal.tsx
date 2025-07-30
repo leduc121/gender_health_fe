@@ -3,17 +3,20 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { BlogService } from "@/services/blog.service";
 import { Blog } from "@/services/blog.service"; // Import Blog interface
+import { PublishBlogDto } from "@/types/api.d"; // Import PublishBlogDto
 
 interface BlogPublishModalProps {
-  blog: Blog | null; // Changed from blogId: string | null;
+  blog: Blog | null;
   onClose: () => void;
   onPublishSuccess: () => void;
+  isApproveAction?: boolean; // New prop for approval action
 }
 
 export default function BlogPublishModal({
   blog,
   onClose,
   onPublishSuccess,
+  isApproveAction = false, // Default to false
 }: BlogPublishModalProps) {
   const [publishNotes, setPublishNotes] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
@@ -35,12 +38,18 @@ export default function BlogPublishModal({
     setError("");
     setSuccess("");
     try {
-      await BlogService.publish(blog.id, { publishNotes });
-      setSuccess("Đã publish thành công!");
+      if (isApproveAction) {
+        await BlogService.review(blog.id, { status: "approved" }); // Call review API to approve
+        setSuccess("Đã duyệt blog thành công!");
+      } else {
+        const data: PublishBlogDto = { publishNotes };
+        await BlogService.publish(blog.id, data);
+        setSuccess("Đã xuất bản thành công!");
+      }
       onPublishSuccess();
       onClose();
     } catch (err: any) {
-      setError(err?.message || "Lỗi publish");
+      setError(err?.message || (isApproveAction ? "Lỗi duyệt blog" : "Lỗi xuất bản"));
     } finally {
       setActionLoading(false);
     }
@@ -59,24 +68,36 @@ export default function BlogPublishModal({
         >
           &times;
         </button>
-        <h2 className="text-xl font-bold mb-4">Publish Blog: {blog.title}</h2>
-        <div className="mb-4">
-          <label htmlFor="publishNotes" className="font-medium">
-            Ghi chú publish (không bắt buộc)
-          </label>
-          <textarea
-            id="publishNotes"
-            className="w-full border rounded px-2 py-1 mt-1"
-            value={publishNotes}
-            onChange={(e) => setPublishNotes(e.target.value)}
-            placeholder="Nhập ghi chú publish"
-          />
-        </div>
+        <h2 className="text-xl font-bold mb-4">
+          {isApproveAction
+            ? `Duyệt Blog: ${blog.title}`
+            : `Xuất bản Blog: ${blog.title}`}
+        </h2>
+        {!isApproveAction && (
+          <div className="mb-4">
+            <label htmlFor="publishNotes" className="font-medium">
+              Ghi chú publish (không bắt buộc)
+            </label>
+            <textarea
+              id="publishNotes"
+              className="w-full border rounded px-2 py-1 mt-1"
+              value={publishNotes}
+              onChange={(e) => setPublishNotes(e.target.value)}
+              placeholder="Nhập ghi chú publish"
+            />
+          </div>
+        )}
         {error && <div className="text-red-500 mb-2">{error}</div>}
         {success && <div className="text-green-600 mb-2">{success}</div>}
         <div className="flex gap-2 justify-end">
           <Button onClick={handlePublish} disabled={actionLoading}>
-            {actionLoading ? "Đang publish..." : "Xác nhận Publish"}
+            {actionLoading
+              ? isApproveAction
+                ? "Đang duyệt..."
+                : "Đang xuất bản..."
+              : isApproveAction
+              ? "Xác nhận Duyệt"
+              : "Xác nhận Xuất bản"}
           </Button>
         </div>
       </div>

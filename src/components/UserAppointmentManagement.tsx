@@ -24,7 +24,8 @@ import {
   MapPin,
   Phone,
   Video,
-  Star,
+  Star, // Keep Star for display
+  StarIcon, // Use StarIcon for rating input
   User,
   FileText,
   AlertCircle,
@@ -35,14 +36,24 @@ import {
   Ban,
   Eye,
   MessageSquare,
+  CreditCard, // Add CreditCard icon
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { AppointmentService, AppointmentStatus } from "@/services/appointment.service";
-import { STITestingService } from "@/services/sti-testing.service";
+import { AppointmentService, AppointmentStatus, Appointment as GeneralAppointmentType } from "@/services/appointment.service";
+import { STITestingService, StiProcess as StiAppointmentType } from "@/services/sti-testing.service";
+import { FeedbackService } from "@/services/feedback.service"; // Import FeedbackService
+import { Feedback, CreateFeedbackDto } from "@/types/feedback"; // Import Feedback types
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useRouter } from "next/navigation";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { DialogClose } from "@/components/ui/dialog";
+import { Pagination } from "@/components/ui/pagination"; // Import Pagination components
+import { PaginationInfo } from "@/components/ui/pagination-info"; // Import PaginationInfo
+import { PaginationResponse } from "@/types/api.d"; // Import PaginationResponse
+import { CreateChatDialog } from "@/components/CreateChatDialog"; // Import CreateChatDialog
+import { ChatService } from "@/services/chat.service"; // Import ChatService
 
 interface ConsultantDetails {
   id: string;
@@ -76,12 +87,14 @@ interface AppointmentDetails {
   updatedAt: string;
   cancellationReason?: string;
   services?: ServiceDetails[];
-  questionId?: string;
+  chatRoomId?: string; // Changed from questionId to chatRoomId
   type: "consultation" | "sti_test";
   sampleCollectionDate?: string;
   sampleCollectionLocation?: "online" | "office";
   stiServiceId?: string;
   testCode?: string;
+  feedbackId?: string; // Add feedback ID
+  feedback?: Feedback; // Add feedback object
 }
 
 interface CancelDialogProps {
@@ -91,6 +104,101 @@ interface CancelDialogProps {
   onConfirm: (reason: string) => void;
   isLoading: boolean;
 }
+
+interface RatingDialogProps {
+  appointment: AppointmentDetails;
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (rating: number, comment: string, isAnonymous: boolean) => void;
+  isLoading: boolean;
+}
+
+const RatingDialog: React.FC<RatingDialogProps> = ({
+  appointment,
+  isOpen,
+  onClose,
+  onConfirm,
+  isLoading,
+}) => {
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [isAnonymous, setIsAnonymous] = useState(false);
+
+  const handleConfirm = () => {
+    if (rating > 0) {
+      onConfirm(rating, comment, isAnonymous);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Đánh giá lịch hẹn</DialogTitle>
+          <DialogDescription>
+            Vui lòng chia sẻ trải nghiệm của bạn về lịch hẹn với {appointment.consultant?.firstName} {appointment.consultant?.lastName}.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="rating">Đánh giá sao:</Label>
+            <div className="flex items-center gap-1">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <StarIcon
+                  key={star}
+                  className={`w-8 h-8 cursor-pointer ${
+                    star <= rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+                  }`}
+                  onClick={() => setRating(star)}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="comment">Bình luận:</Label>
+            <Textarea
+              id="comment"
+              placeholder="Chia sẻ thêm về trải nghiệm của bạn..."
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              className="min-h-[100px]"
+            />
+          </div>
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="anonymous"
+              checked={isAnonymous}
+              onChange={(e) => setIsAnonymous(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <Label htmlFor="anonymous">Gửi ẩn danh</Label>
+          </div>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline" disabled={isLoading}>
+              Đóng
+            </Button>
+          </DialogClose>
+          <Button
+            onClick={handleConfirm}
+            disabled={rating === 0 || isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Đang gửi...
+              </>
+            ) : (
+              "Gửi phản hồi"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 const CancelDialog: React.FC<CancelDialogProps> = ({
   appointment,
@@ -113,6 +221,7 @@ const CancelDialog: React.FC<CancelDialogProps> = ({
         <DialogHeader>
           <DialogTitle>Hủy lịch hẹn</DialogTitle>
           <DialogDescription>
+            Bạn có chắc chắn muốn hủy lịch hẹn với {appointment.consultant?.firstName} {appointment.consultant?.lastName}?
             Bạn có chắc chắn muốn hủy lịch hẹn với {appointment.consultant?.firstName} {appointment.consultant?.lastName}?
           </DialogDescription>
         </DialogHeader>
@@ -156,13 +265,18 @@ const AppointmentCard: React.FC<{
   appointment: AppointmentDetails;
   onCancel: (appointment: AppointmentDetails) => void;
   onViewDetails: (appointment: AppointmentDetails) => void;
-  onEnterChat: (appointment: AppointmentDetails) => void; // Add new prop
+  onEnterChat: (appointment: AppointmentDetails) => void;
+  onRateAppointment: (appointment: AppointmentDetails) => void;
+  onPayAppointment: (appointment: AppointmentDetails) => void;
   getStatusIcon: (status: AppointmentStatus) => JSX.Element;
   getStatusColor: (status: AppointmentStatus) => string;
-}> = ({ appointment, onCancel, onViewDetails, onEnterChat, getStatusIcon, getStatusColor }) => { // Update props
+  isLoadingChat: boolean; // Add isLoadingChat prop
+}> = ({ appointment, onCancel, onViewDetails, onEnterChat, onRateAppointment, onPayAppointment, getStatusIcon, getStatusColor, isLoadingChat }) => {
 
   const canCancel = AppointmentService.canCancel(appointment.status);
   const isPastAppointment = AppointmentService.isPastAppointment(appointment.appointmentDate);
+  const isCompletedAndPast = appointment.status === "completed" && isPastAppointment;
+  const hasFeedback = !!appointment.feedbackId;
 
   const appointmentDateObj = new Date(appointment.appointmentDate);
   const isDateValid = !isNaN(appointmentDateObj.getTime());
@@ -174,7 +288,9 @@ const AppointmentCard: React.FC<{
           <div className="flex items-center space-x-3">
             <Avatar className="w-12 h-12">
               <AvatarImage src={appointment.consultant?.profilePicture} alt={`${appointment.consultant?.firstName} ${appointment.consultant?.lastName}`} />
+              <AvatarImage src={appointment.consultant?.profilePicture} alt={`${appointment.consultant?.firstName} ${appointment.consultant?.lastName}`} />
               <AvatarFallback>
+                {`${appointment.consultant?.firstName?.[0] || ''}${appointment.consultant?.lastName?.[0] || ''}`}
                 {`${appointment.consultant?.firstName?.[0] || ''}${appointment.consultant?.lastName?.[0] || ''}`}
               </AvatarFallback>
             </Avatar>
@@ -183,8 +299,13 @@ const AppointmentCard: React.FC<{
                 {appointment.consultant ? `${appointment.consultant.firstName} ${appointment.consultant.lastName}` : "N/A"}
               </h3>
               <p className="text-sm text-muted-foreground">{appointment.consultant?.qualification || "N/A"}</p>
+              <h3 className="font-semibold text-lg">
+                {appointment.consultant ? `${appointment.consultant.firstName} ${appointment.consultant.lastName}` : "N/A"}
+              </h3>
+              <p className="text-sm text-muted-foreground">{appointment.consultant?.qualification || "N/A"}</p>
               <div className="flex items-center gap-1 mt-1">
                 <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                <span className="text-sm">{appointment.consultant?.rating ? `${appointment.consultant.rating}/5` : "N/A"}</span>
                 <span className="text-sm">{appointment.consultant?.rating ? `${appointment.consultant.rating}/5` : "N/A"}</span>
               </div>
             </div>
@@ -203,25 +324,33 @@ const AppointmentCard: React.FC<{
             <CalendarIcon className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm">
               {isDateValid ? format(appointmentDateObj, "EEEE, dd/MM/yyyy", { locale: vi }) : "N/A"}
+              {isDateValid ? format(appointmentDateObj, "EEEE, dd/MM/yyyy", { locale: vi }) : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm">
               {isDateValid ? format(appointmentDateObj, "HH:mm") : "N/A"}
+              {isDateValid ? format(appointmentDateObj, "HH:mm") : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm">
-              {appointment.location === "online" ? "Tư vấn trực tuyến" : "Tại phòng khám"}
+              {appointment.services && appointment.services.length > 0 && appointment.services[0].name === "Tư vấn trực tuyến"
+                ? "Trực tuyến"
+                : (appointment.location === "online" || !appointment.location)
+                  ? "Trực tuyến"
+                  : "Tại phòng khám"}
             </span>
           </div>
           {appointment.services && (
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm">
-                {appointment.services.map(s => s.name).join(", ")}
+                {appointment.services && appointment.services.length > 0 && appointment.services[0].name
+                  ? appointment.services.map(s => s.name).join(", ")
+                  : "Tư vấn trực tuyến"}
                 {appointment.type === "sti_test" && appointment.testCode && ` (Mã: ${appointment.testCode})`}
               </span>
             </div>
@@ -273,15 +402,59 @@ const AppointmentCard: React.FC<{
           )}
           
           {/* Add Chat Button */}
-          {appointment.questionId && ( // Only show if questionId exists
+          {["confirmed", "in_progress", "completed"].includes(
+            appointment.status
+          ) && (
             <Button
               variant="outline"
               size="sm"
               onClick={() => onEnterChat(appointment)}
+              disabled={isLoadingChat}
               className="flex items-center gap-2"
             >
-              <MessageSquare className="w-4 h-4" />
-              Vào chat
+              {isLoadingChat ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <MessageSquare className="w-4 h-4" />
+              )}
+              {isLoadingChat ? "Đang tải..." : "Vào chat"}
+            </Button>
+          )}
+
+          {isCompletedAndPast && !hasFeedback && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => onRateAppointment(appointment)}
+              className="flex items-center gap-2"
+            >
+              <StarIcon className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+              Gửi phản hồi
+            </Button>
+          )}
+
+          {isCompletedAndPast && hasFeedback && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onViewDetails(appointment)} // Re-use onViewDetails to show feedback in dialog
+              className="flex items-center gap-2"
+            >
+              <StarIcon className="w-4 h-4" />
+              Xem phản hồi
+            </Button>
+          )}
+
+          {/* Add Pay Button */}
+          {appointment.status === "pending" && (appointment.type === "consultation" || appointment.type === "sti_test") && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => onPayAppointment(appointment)}
+              className="flex items-center gap-2"
+            >
+              <CreditCard className="w-4 h-4" />
+              Thanh toán
             </Button>
           )}
         </div>
@@ -293,15 +466,24 @@ const AppointmentCard: React.FC<{
 const UserAppointmentManagement: React.FC = () => {
   const { toast } = useToast();
   const { user } = useAuth();
-  const router = useRouter(); // Add useRouter
+  const router = useRouter();
   const [appointments, setAppointments] = useState<AppointmentDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentDetails | null>(null);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [isRatingDialogOpen, setIsRatingDialogOpen] = useState(false);
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [isCreateChatDialogOpen, setIsCreateChatDialogOpen] = useState(false); // State for chat dialog
+  const [appointmentForChat, setAppointmentForChat] = useState<AppointmentDetails | null>(null); // State to hold appointment for chat
+  const [isLoadingChat, setIsLoadingChat] = useState(false); // State for loading chat
 
-
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalAppointmentsCount, setTotalAppointmentsCount] = useState(0); // Total count for all appointments
+  const itemsPerPage = 10; // Number of items per page
 
   const getStatusIcon = (status: AppointmentStatus) => {
     switch (status) {
@@ -347,97 +529,171 @@ const UserAppointmentManagement: React.FC = () => {
       setIsLoading(false);
       return;
     }
-    
+
     setIsLoading(true);
     try {
+      console.log("Fetching appointments for user:", user.id);
       const [generalAppointmentsResponse, stiAppointmentsResponse] = await Promise.all([
-        AppointmentService.getUserAppointments(),
-        STITestingService.getUserStiAppointments(),
-      ]);
+        AppointmentService.getUserAppointments({ page: currentPage, limit: itemsPerPage }),
+        STITestingService.getUserStiAppointments({ page: currentPage, limit: itemsPerPage }),
+      ]) as [
+          PaginationResponse<GeneralAppointmentType>,
+          PaginationResponse<StiAppointmentType>
+        ];
 
-      const generalAppointments: AppointmentDetails[] = Array.isArray(generalAppointmentsResponse)
-        ? generalAppointmentsResponse.map((apt: any) => ({
-            id: apt.id,
-            consultantId: apt.consultant?.id,
-            consultant: apt.consultant ? {
-              id: apt.consultant.id,
-              firstName: apt.consultant.firstName || '',
-              lastName: apt.consultant.lastName || '',
-              profilePicture: apt.consultant.profilePicture || apt.consultant.avatar,
-              specialties: apt.consultant.specialties || [],
-              qualification: apt.consultant.qualification,
-              experience: apt.consultant.experience,
-              rating: apt.consultant.rating,
-            } : undefined,
-            appointmentDate: apt.appointmentDate,
-            status: apt.status as AppointmentStatus,
-            notes: apt.notes,
-            meetingLink: apt.meetingLink,
-            location: apt.location,
-            createdAt: apt.createdAt,
-            updatedAt: apt.updatedAt,
-            cancellationReason: apt.cancellationReason,
-            services: apt.services?.map((s: any) => ({
-              id: s.id,
-              name: s.name,
-              description: s.description,
-              price: s.price,
-              type: s.type,
-            })),
-            questionId: apt.questionId,
-            type: "consultation", // Mark as consultation appointment
-          }))
-        : [];
+      console.log("Raw General Appointments Response:", generalAppointmentsResponse);
+      console.log("Raw STI Appointments Response:", stiAppointmentsResponse);
 
-      const stiAppointments: AppointmentDetails[] = Array.isArray(stiAppointmentsResponse)
-        ? stiAppointmentsResponse.map((apt: any) => ({
-            id: apt.id,
-            consultantId: apt.consultantDoctor?.id,
-            consultant: apt.consultantDoctor ? {
-              id: apt.consultantDoctor.id,
-              firstName: apt.consultantDoctor.firstName || '',
-              lastName: apt.consultantDoctor.lastName || '',
-              profilePicture: apt.consultantDoctor.profilePicture || apt.consultantDoctor.avatar,
-              specialties: apt.consultantDoctor.specialties || [],
-              qualification: apt.consultantDoctor.qualification,
-              experience: apt.consultantDoctor.experience,
-              rating: apt.consultantDoctor.rating,
-            } : undefined,
-            appointmentDate: apt.sampleCollectionDate,
-            status: apt.status as AppointmentStatus,
-            notes: apt.processNotes,
-            location: apt.sampleCollectionLocation,
-            createdAt: apt.createdAt,
-            updatedAt: apt.updatedAt,
-            services: apt.service ? [{
-              id: apt.service.id,
-              name: apt.service.name,
-              description: apt.service.description,
-              price: apt.service.price,
-              type: apt.service.type,
-            }] : [],
-            type: "sti_test", // Mark as STI test appointment
-            sampleCollectionDate: apt.sampleCollectionDate,
-            sampleCollectionLocation: apt.sampleCollectionLocation,
-            stiServiceId: apt.service?.id,
-            testCode: apt.testCode,
-          }))
-        : [];
-      
+      const generalAppointments: AppointmentDetails[] = await Promise.all(
+        Array.isArray(generalAppointmentsResponse.data)
+          ? generalAppointmentsResponse.data.map(async (apt: any) => {
+            const appointmentDetails: AppointmentDetails = {
+              id: apt.id,
+              consultantId: apt.consultant?.id,
+              consultant: apt.consultant ? {
+                id: apt.consultant.id,
+                firstName: apt.consultant.firstName || '',
+                lastName: apt.consultant.lastName || '',
+                profilePicture: apt.consultant.profilePicture || apt.consultant.avatar,
+                specialties: apt.consultant.specialties || [],
+                qualification: apt.consultant.qualification,
+                experience: apt.consultant.experience,
+                rating: apt.consultant.rating,
+              } : undefined,
+              appointmentDate: apt.appointmentDate,
+              status: apt.status as AppointmentStatus,
+              notes: apt.notes,
+              meetingLink: apt.meetingLink,
+              location: apt.location,
+              createdAt: apt.createdAt,
+              updatedAt: apt.updatedAt,
+              cancellationReason: apt.cancellationReason,
+              services: apt.services?.map((s: any) => ({
+                id: s.id,
+                name: s.name,
+                description: s.description,
+                price: s.price,
+                type: s.type,
+              })),
+              chatRoomId: apt.chatRoomId, // Use chatRoomId from API
+              type: "consultation",
+              feedbackId: apt.feedbackId,
+              feedback: undefined,
+            };
+
+            if (appointmentDetails.feedbackId) {
+              try {
+                const feedbackResponse = await FeedbackService.getFeedbackById(appointmentDetails.feedbackId);
+                appointmentDetails.feedback = feedbackResponse;
+              } catch (feedbackError) {
+                console.error(`Error fetching feedback for appointment ${apt.id}:`, feedbackError);
+              }
+            }
+            return appointmentDetails;
+          })
+          : []
+      );
+      console.log("Mapped General Appointments:", generalAppointments);
+
+      const stiAppointments: AppointmentDetails[] = await Promise.all(
+        Array.isArray(stiAppointmentsResponse.data)
+          ? stiAppointmentsResponse.data.map(async (apt: any) => {
+            const appointmentDetails: AppointmentDetails = {
+              id: apt.id,
+              consultantId: apt.consultantDoctor?.id,
+              consultant: apt.consultantDoctor ? {
+                id: apt.consultantDoctor.id,
+                firstName: apt.consultantDoctor.firstName || '',
+                lastName: apt.consultantDoctor.lastName || '',
+                profilePicture: apt.consultantDoctor.profilePicture || apt.consultantDoctor.avatar,
+                specialties: apt.consultantDoctor.specialties || [],
+                qualification: apt.consultantDoctor.qualification,
+                experience: apt.consultantDoctor.experience,
+                rating: apt.consultantDoctor.rating,
+              } : undefined,
+              appointmentDate: apt.sampleCollectionDate,
+              status: (() => {
+                switch (apt.status) {
+                  case "ordered":
+                  case "sample_collection_scheduled":
+                    return "pending";
+                  case "sample_collected":
+                  case "processing":
+                  case "result_ready":
+                  case "result_delivered":
+                  case "consultation_required":
+                  case "follow_up_scheduled":
+                    return "confirmed";
+                  case "completed":
+                    return "completed";
+                  case "cancelled":
+                    return "cancelled";
+                  default:
+                    return "pending";
+                }
+              })() as AppointmentStatus,
+              notes: apt.processNotes,
+              location: apt.sampleCollectionLocation,
+              createdAt: apt.createdAt,
+              updatedAt: apt.updatedAt,
+              services: apt.service ? [{
+                id: apt.service.id,
+                name: apt.service.name,
+                description: apt.service.description, // Sửa lại thành apt.service.description
+                price: apt.service.price, // Sửa lại thành apt.service.price
+                type: apt.service.type, // Sửa lại thành apt.service.type
+              }] : [],
+              chatRoomId: apt.chatRoomId, // Use chatRoomId from API for STI appointments too
+              type: "sti_test",
+              sampleCollectionDate: apt.sampleCollectionDate,
+              sampleCollectionLocation: apt.sampleCollectionLocation,
+              stiServiceId: apt.service?.id,
+              testCode: apt.testCode,
+              feedbackId: apt.feedbackId,
+              feedback: undefined,
+            };
+
+            if (appointmentDetails.feedbackId) {
+              try {
+                const feedbackResponse = await FeedbackService.getFeedbackById(appointmentDetails.feedbackId);
+                appointmentDetails.feedback = feedbackResponse;
+              } catch (feedbackError) {
+                console.error(`Error fetching feedback for STI appointment ${apt.id}:`, feedbackError);
+              }
+            }
+            return appointmentDetails;
+          })
+          : []
+      );
+      console.log("Mapped STI Appointments:", stiAppointments);
+
       const combinedAppointments = [...generalAppointments, ...stiAppointments];
+      console.log("Combined Appointments before sort:", combinedAppointments);
 
       combinedAppointments.sort((a, b) => {
         const dateA = new Date(a.appointmentDate).getTime();
         const dateB = new Date(b.appointmentDate).getTime();
         return dateB - dateA;
       });
+      console.log("Combined Appointments after sort:", combinedAppointments);
 
       setAppointments(combinedAppointments);
+
+      // Calculate total count and total pages from both responses
+      const totalGeneral = generalAppointmentsResponse.meta?.totalItems || 0;
+      const totalSti = stiAppointmentsResponse.meta?.totalItems || 0;
+      const combinedTotal = totalGeneral + totalSti;
+      setTotalAppointmentsCount(combinedTotal);
+      setTotalPages(Math.ceil(combinedTotal / itemsPerPage));
+
     } catch (error: any) {
       console.error("Error fetching appointments:", error);
       setAppointments([]);
+      setTotalAppointmentsCount(0);
+      setTotalPages(1);
       toast({
         title: "Lỗi",
+        description: `Không thể tải danh sách lịch hẹn. Vui lòng thử lại. Lỗi: ${error.message || error}`,
         description: `Không thể tải danh sách lịch hẹn. Vui lòng thử lại. Lỗi: ${error.message || error}`,
         variant: "destructive",
       });
@@ -446,31 +702,55 @@ const UserAppointmentManagement: React.FC = () => {
     }
   };
 
-  // New handler for chat button
+  // Handler for chat button
   const handleEnterChat = async (appointment: AppointmentDetails) => {
-    if (appointment.questionId) {
-      router.push(`/chat/${appointment.questionId}`);
-    } else {
-      // If questionId is not directly in appointment, try fetching it
-      try {
-        const chatRoom = await AppointmentService.getAppointmentChatRoom(appointment.id);
-        if (chatRoom && chatRoom.id) { // Assuming chatRoom has an 'id' property for the question
-          router.push(`/chat/${chatRoom.id}`);
-        } else {
-          toast({
-            title: "Lỗi",
-            description: "Không tìm thấy phòng chat cho lịch hẹn này.",
-            variant: "destructive",
-          });
-        }
-      } catch (error: any) {
-        console.error("Error fetching chat room for appointment:", error);
+    setIsLoadingChat(true);
+    try {
+      // Check if a chat room already exists for this appointment
+      const existingQuestion = await ChatService.getQuestionByAppointmentId(appointment.id);
+      if (existingQuestion && existingQuestion.id) {
+        // If it exists, navigate to the chat room
+        router.push(`/chat/${existingQuestion.id}`);
+      } else {
+        // This case should ideally not be reached if the API returns a proper 404
+        setAppointmentForChat(appointment);
+        setIsCreateChatDialogOpen(true);
+      }
+    } catch (error: any) {
+      // If API returns 404 or another error, it means no chat room exists yet
+      if (error.response && error.response.status === 404) {
+        // Open the dialog to create a new chat
+        setAppointmentForChat(appointment);
+        setIsCreateChatDialogOpen(true);
+      } else {
+        console.error("Error checking for existing chat room:", error);
         toast({
           title: "Lỗi",
-          description: "Không thể truy cập phòng chat. Vui lòng thử lại.",
+          description: "Không thể kiểm tra phòng chat. Vui lòng thử lại.",
           variant: "destructive",
         });
       }
+    } finally {
+      setIsLoadingChat(false);
+    }
+  };
+
+  const handlePayAppointment = (appointment: AppointmentDetails) => {
+    let paymentUrl = '';
+    if (appointment.type === "consultation") {
+      paymentUrl = `/appointments/payment/${appointment.id}`;
+    } else if (appointment.type === "sti_test") {
+      paymentUrl = `/sti-testing/payment/${appointment.id}`; // Assuming STI payment path
+    }
+
+    if (paymentUrl) {
+      router.push(paymentUrl);
+    } else {
+      toast({
+        title: "Lỗi",
+        description: "Không thể tạo URL thanh toán cho lịch hẹn này.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -484,12 +764,12 @@ const UserAppointmentManagement: React.FC = () => {
 
     setIsCancelling(true);
     try {
-      await AppointmentService.cancelAppointment(selectedAppointment.id, reason);
-      
+      await AppointmentService.cancelAppointment(selectedAppointment.id, { cancellationReason: reason });
+
       // Update local state
-      setAppointments(prev => 
-        prev.map(apt => 
-          apt.id === selectedAppointment.id 
+      setAppointments(prev =>
+        prev.map(apt =>
+          apt.id === selectedAppointment.id
             ? { ...apt, status: "cancelled" as AppointmentStatus, cancellationReason: reason }
             : apt
         )
@@ -503,6 +783,7 @@ const UserAppointmentManagement: React.FC = () => {
       setIsCancelDialogOpen(false);
       setSelectedAppointment(null);
     } catch (error: any) {
+    } catch (error: any) {
       console.error("Error cancelling appointment:", error);
       toast({
         title: "Lỗi",
@@ -511,6 +792,60 @@ const UserAppointmentManagement: React.FC = () => {
       });
     } finally {
       setIsCancelling(false);
+    }
+  };
+
+  const handleRateAppointment = (appointment: AppointmentDetails) => {
+    setSelectedAppointment(appointment);
+    setIsRatingDialogOpen(true);
+  };
+
+  const handleConfirmFeedback = async (
+    rating: number,
+    comment: string,
+    isAnonymous: boolean
+  ) => {
+    if (!selectedAppointment || !user) return;
+
+    setIsSubmittingFeedback(true);
+    try {
+      const feedbackData: CreateFeedbackDto = {
+        userId: user.id,
+        serviceId: selectedAppointment.services?.[0]?.id || '', // Assuming first service is primary
+        appointmentId: selectedAppointment.id,
+        consultantId: selectedAppointment.consultantId || '',
+        rating,
+        comment,
+        isAnonymous,
+      };
+
+      const response = await FeedbackService.createFeedback(feedbackData);
+      
+      // Update local state with new feedback
+      setAppointments(prev =>
+        prev.map(apt =>
+          apt.id === selectedAppointment.id
+            ? { ...apt, feedbackId: response.id, feedback: response }
+            : apt
+        )
+      );
+
+      toast({
+        title: "Gửi phản hồi thành công",
+        description: "Cảm ơn bạn đã chia sẻ trải nghiệm.",
+      });
+
+      setIsRatingDialogOpen(false);
+      setSelectedAppointment(null);
+    } catch (error: any) {
+      console.error("Error submitting feedback:", error);
+      toast({
+        title: "Lỗi",
+        description: `Không thể gửi phản hồi. Vui lòng thử lại. Lỗi: ${error.message || error}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmittingFeedback(false);
     }
   };
 
@@ -527,12 +862,69 @@ const UserAppointmentManagement: React.FC = () => {
   const upcomingAppointments = appointments.filter(apt => 
     !AppointmentService.isPastAppointment(apt.appointmentDate) && 
     ["pending", "confirmed", "scheduled"].includes(apt.status)
+    ["pending", "confirmed", "scheduled"].includes(apt.status)
   );
 
   const pastAppointments = appointments.filter(apt => 
     AppointmentService.isPastAppointment(apt.appointmentDate) || 
     ["completed", "cancelled", "no_show"].includes(apt.status)
   );
+
+  // Pagination handlers
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleFirstPage = () => {
+    setCurrentPage(1);
+  };
+
+  const handleLastPage = () => {
+    setCurrentPage(totalPages);
+  };
+
+  const getPageNumbers = () => {
+    const pageNumbers = [];
+    const maxPagesToShow = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+    let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+
+    if (endPage - startPage + 1 < maxPagesToShow) {
+      startPage = Math.max(1, endPage - maxPagesToShow + 1);
+    }
+
+    if (startPage > 1) {
+      pageNumbers.push(1);
+      if (startPage > 2) {
+        pageNumbers.push(-1);
+      }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pageNumbers.push(i);
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        pageNumbers.push(-1);
+      }
+      pageNumbers.push(totalPages);
+    }
+
+    return pageNumbers;
+  };
 
   if (isLoading) {
     return (
@@ -560,7 +952,7 @@ const UserAppointmentManagement: React.FC = () => {
             Đã qua ({pastAppointments.length})
           </TabsTrigger>
           <TabsTrigger value="all">
-            Tất cả ({appointments.length})
+            Tất cả ({totalAppointmentsCount})
           </TabsTrigger>
         </TabsList>
 
@@ -586,9 +978,12 @@ const UserAppointmentManagement: React.FC = () => {
                   appointment={appointment}
                   onCancel={handleCancelAppointment}
                   onViewDetails={handleViewDetails}
-                  onEnterChat={handleEnterChat} // Pass new prop
+                  onEnterChat={handleEnterChat}
+                  onRateAppointment={handleRateAppointment}
+                  onPayAppointment={handlePayAppointment}
                   getStatusIcon={getStatusIcon}
                   getStatusColor={getStatusColor}
+                  isLoadingChat={isLoadingChat}
                 />
               ))}
             </div>
@@ -614,9 +1009,12 @@ const UserAppointmentManagement: React.FC = () => {
                   appointment={appointment}
                   onCancel={handleCancelAppointment}
                   onViewDetails={handleViewDetails}
-                  onEnterChat={handleEnterChat} // Pass new prop
+                  onEnterChat={handleEnterChat}
+                  onRateAppointment={handleRateAppointment}
+                  onPayAppointment={handlePayAppointment}
                   getStatusIcon={getStatusIcon}
                   getStatusColor={getStatusColor}
+                  isLoadingChat={isLoadingChat}
                 />
               ))}
             </div>
@@ -624,7 +1022,7 @@ const UserAppointmentManagement: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="all" className="space-y-4">
-          {appointments.length === 0 ? (
+          {appointments.length === 0 && totalAppointmentsCount === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Calendar className="w-12 h-12 text-muted-foreground mb-4" />
@@ -638,19 +1036,44 @@ const UserAppointmentManagement: React.FC = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4">
-              {appointments.map((appointment) => (
-                <AppointmentCard
-                  key={appointment.id}
-                  appointment={appointment}
-                  onCancel={handleCancelAppointment}
-                  onViewDetails={handleViewDetails}
-                  onEnterChat={handleEnterChat} // Pass new prop
-                  getStatusIcon={getStatusIcon}
-                  getStatusColor={getStatusColor}
+            <>
+              <div className="grid gap-4">
+                {appointments.map((appointment) => (
+                  <AppointmentCard
+                    key={appointment.id}
+                    appointment={appointment}
+                    onCancel={handleCancelAppointment}
+                    onViewDetails={handleViewDetails}
+                    onEnterChat={handleEnterChat}
+                    onRateAppointment={handleRateAppointment}
+                    onPayAppointment={handlePayAppointment}
+                    getStatusIcon={getStatusIcon}
+                    getStatusColor={getStatusColor}
+                    isLoadingChat={isLoadingChat}
+                  />
+                ))}
+              </div>
+              <div className="flex justify-between items-center mt-4">
+                <PaginationInfo
+                  totalItems={totalAppointmentsCount}
+                  itemsPerPage={itemsPerPage}
+                  currentPage={currentPage}
+                  itemName="lịch hẹn"
                 />
-              ))}
-            </div>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  pageNumbers={getPageNumbers()}
+                  hasNextPage={currentPage < totalPages}
+                  hasPreviousPage={currentPage > 1}
+                  onPageChange={handlePageChange}
+                  onNextPage={handleNextPage}
+                  onPreviousPage={handlePreviousPage}
+                  onFirstPage={handleFirstPage}
+                  onLastPage={handleLastPage}
+                />
+              </div>
+            </>
           )}
         </TabsContent>
       </Tabs>
@@ -669,6 +1092,20 @@ const UserAppointmentManagement: React.FC = () => {
         />
       )}
 
+      {/* Rating Dialog */}
+      {selectedAppointment && isRatingDialogOpen && (
+        <RatingDialog
+          appointment={selectedAppointment}
+          isOpen={isRatingDialogOpen}
+          onClose={() => {
+            setIsRatingDialogOpen(false);
+            setSelectedAppointment(null);
+          }}
+          onConfirm={handleConfirmFeedback}
+          isLoading={isSubmittingFeedback}
+        />
+      )}
+
       {/* Details Dialog */}
       {selectedAppointment && (
         <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
@@ -680,7 +1117,9 @@ const UserAppointmentManagement: React.FC = () => {
               <div className="flex items-center gap-4">
                 <Avatar className="w-16 h-16">
                   <AvatarImage src={selectedAppointment.consultant?.profilePicture} alt={`${selectedAppointment.consultant?.firstName} ${selectedAppointment.consultant?.lastName}`} />
+                  <AvatarImage src={selectedAppointment.consultant?.profilePicture} alt={`${selectedAppointment.consultant?.firstName} ${selectedAppointment.consultant?.lastName}`} />
                   <AvatarFallback>
+                    {`${selectedAppointment.consultant?.firstName?.[0] || ''}${selectedAppointment.consultant?.lastName?.[0] || ''}`}
                     {`${selectedAppointment.consultant?.firstName?.[0] || ''}${selectedAppointment.consultant?.lastName?.[0] || ''}`}
                   </AvatarFallback>
                 </Avatar>
@@ -689,9 +1128,14 @@ const UserAppointmentManagement: React.FC = () => {
                     {selectedAppointment.consultant ? `${selectedAppointment.consultant.firstName} ${selectedAppointment.consultant.lastName}` : "N/A"}
                   </h3>
                   <p className="text-muted-foreground">{selectedAppointment.consultant?.qualification || "N/A"}</p>
+                  <h3 className="text-xl font-semibold">
+                    {selectedAppointment.consultant ? `${selectedAppointment.consultant.firstName} ${selectedAppointment.consultant.lastName}` : "N/A"}
+                  </h3>
+                  <p className="text-muted-foreground">{selectedAppointment.consultant?.qualification || "N/A"}</p>
                   <div className="flex items-center gap-4 mt-2">
                     <div className="flex items-center gap-1">
                       <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                      <span className="text-sm">{selectedAppointment.consultant?.rating ? `${selectedAppointment.consultant.rating}/5` : "N/A"}</span>
                       <span className="text-sm">{selectedAppointment.consultant?.rating ? `${selectedAppointment.consultant.rating}/5` : "N/A"}</span>
                     </div>
                     <Badge className={getStatusColor(selectedAppointment.status)}>
@@ -712,6 +1156,10 @@ const UserAppointmentManagement: React.FC = () => {
                       const dateObj = new Date(selectedAppointment.appointmentDate);
                       return !isNaN(dateObj.getTime()) ? format(dateObj, "EEEE, dd/MM/yyyy", { locale: vi }) : "N/A";
                     })()}
+                    {(() => {
+                      const dateObj = new Date(selectedAppointment.appointmentDate);
+                      return !isNaN(dateObj.getTime()) ? format(dateObj, "EEEE, dd/MM/yyyy", { locale: vi }) : "N/A";
+                    })()}
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -721,22 +1169,32 @@ const UserAppointmentManagement: React.FC = () => {
                       const dateObj = new Date(selectedAppointment.appointmentDate);
                       return !isNaN(dateObj.getTime()) ? format(dateObj, "HH:mm") : "N/A";
                     })()}
+                    {(() => {
+                      const dateObj = new Date(selectedAppointment.appointmentDate);
+                      return !isNaN(dateObj.getTime()) ? format(dateObj, "HH:mm") : "N/A";
+                    })()}
                   </p>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Hình thức:</Label>
                   <p className="text-sm">
-                    {selectedAppointment.location === "online" ? "Tư vấn trực tuyến" : "Tại phòng khám"}
+                    {selectedAppointment.services && selectedAppointment.services.length > 0 && selectedAppointment.services[0].name === "Tư vấn trực tuyến"
+                      ? "Trực tuyến"
+                      : (selectedAppointment.location === "online" || !selectedAppointment.location)
+                        ? "Trực tuyến"
+                        : "Tại phòng khám"}
                   </p>
                 </div>
                 {selectedAppointment.services && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Dịch vụ:</Label>
-                    <p className="text-sm">
-                      {selectedAppointment.services.map(s => s.name).join(", ")}
-                      {selectedAppointment.type === "sti_test" && selectedAppointment.testCode && ` (Mã: ${selectedAppointment.testCode})`}
-                    </p>
-                  </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Dịch vụ:</Label>
+                  <p className="text-sm">
+                    {selectedAppointment.services && selectedAppointment.services.length > 0 && selectedAppointment.services[0].name
+                      ? selectedAppointment.services.map(s => s.name).join(", ")
+                      : "Tư vấn trực tuyến"}
+                    {selectedAppointment.type === "sti_test" && selectedAppointment.testCode && ` (Mã: ${selectedAppointment.testCode})`}
+                  </p>
+                </div>
                 )}
               </div>
 
@@ -757,6 +1215,45 @@ const UserAppointmentManagement: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {/* Display Feedback if available */}
+              {selectedAppointment.feedback && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <h4 className="font-semibold">Phản hồi của bạn:</h4>
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <StarIcon
+                          key={star}
+                          className={`w-5 h-5 ${
+                            star <= selectedAppointment.feedback!.rating
+                              ? "fill-yellow-400 text-yellow-400"
+                              : "text-gray-300"
+                          }`}
+                        />
+                      ))}
+                      <span className="text-sm ml-2">({selectedAppointment.feedback.rating}/5)</span>
+                    </div>
+                    {selectedAppointment.feedback.comment && (
+                      <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+                        {selectedAppointment.feedback.comment}
+                      </div>
+                    )}
+                    {selectedAppointment.feedback.isAnonymous && (
+                      <p className="text-xs text-muted-foreground"> (Phản hồi ẩn danh)</p>
+                    )}
+                  </div>
+                  {selectedAppointment.feedback.staffResponse && (
+                    <div className="space-y-2">
+                      <h4 className="font-semibold">Phản hồi từ nhân viên:</h4>
+                      <div className="text-sm text-muted-foreground bg-blue-50 p-3 rounded-lg border border-blue-200">
+                        {selectedAppointment.feedback.staffResponse}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDetailsDialogOpen(false)}>
@@ -765,6 +1262,18 @@ const UserAppointmentManagement: React.FC = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Create Chat Dialog */}
+      {appointmentForChat && (
+        <CreateChatDialog
+          isOpen={isCreateChatDialogOpen}
+          onClose={() => {
+            setIsCreateChatDialogOpen(false);
+            setAppointmentForChat(null);
+          }}
+          appointmentId={appointmentForChat.id}
+        />
       )}
     </div>
   );

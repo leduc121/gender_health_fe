@@ -37,3 +37,60 @@ export interface FindAvailableSlotsResponseDto {
   totalConsultants: number;
   message?: string;
 }
+
+export interface StiProcess {
+  id: string;
+  testCode: string;
+  status: "ordered" | "sample_collection_scheduled" | "sample_collected" | "processing" | "result_ready" | "result_delivered" | "consultation_required" | "follow_up_scheduled" | "completed" | "cancelled";
+  sampleType: "blood" | "urine" | "swab" | "saliva" | "other";
+  priority: "normal" | "high" | "urgent";
+  estimatedResultDate: string | null;
+  actualResultDate: string | null;
+  sampleCollectionDate: string | null;
+  sampleCollectionLocation: string | null;
+  processNotes: string | null;
+  labNotes: string | null;
+  sampleCollectedBy: string | null;
+  labProcessedBy: string | null;
+  requiresConsultation: boolean;
+  patientNotified: boolean;
+  resultEmailSent: boolean;
+  isConfidential: boolean;
+  createdAt: string;
+  updatedAt: string;
+  patient: User | null; // Use the User interface
+  service: {
+    id: string;
+    name: string;
+    // Add other service details if available from swagger if needed
+  } | null;
+  appointment: {
+    id: string;
+    appointmentDate: string;
+    status: string; // Use a more specific type if available, e.g., AppointmentStatus
+    notes: string | null;
+    meetingLink: string | null;
+    reminderSent: boolean;
+    reminderSentAt: string | null;
+    checkInTime: string | null;
+    checkOutTime: string | null;
+    fixedPrice: string;
+    consultantSelectionType: string; // Use a more specific type if available
+    appointmentLocation: string; // Use a more specific type if available, e.g., "online" | "office"
+    cancellationReason: string | null;
+    createdAt: string;
+    updatedAt: string;
+    deletedAt: string | null;
+    user: User | null; // Patient user
+    cancelledBy: string | null; // User ID
+    consultant: User | null; // Consultant user
+    consultantAvailability: any | null; // Define a proper type if available
+    question: any | null; // Define a proper type if available
+  } | null;
+  testResult: any | null; // Define a proper type for TestResult if available
+  consultantDoctor: User | null; // Use the User interface
+}
+
+export interface UpdateStiProcessStatusDto {
+  status: "ordered" | "sample_collection_scheduled" | "sample_collected" | "processing" | "result_ready" | "result_delivered" | "consultation_required" | "follow_up_scheduled" | "completed" | "cancelled";
+}

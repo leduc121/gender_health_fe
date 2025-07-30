@@ -63,8 +63,10 @@ export default function BlogListPage() {
           </span>
         </h1>
         {canManage && (
-          <Link href="/blog/manage">
-            <Button>Quản lý blog</Button>
+          <Link href={roleName === "consultant" ? "/blog/new" : "/blog/manage"}>
+            <Button>
+              {roleName === "consultant" ? "Thêm bài viết" : "Quản lý blog"}
+            </Button>
           </Link>
         )}
       </div>
@@ -98,7 +100,7 @@ export default function BlogListPage() {
                 </div>
                 <h2 className="text-xl font-semibold mb-2">{blog.title}</h2>
                 <div className="text-gray-500 text-sm mb-1">
-                  Tác giả: {blog.authorId}
+                  Tác giả: {blog.author.firstName} {blog.author.lastName}
                 </div>
                 <div className="text-gray-400 text-xs">
                   Ngày tạo: {new Date(blog.createdAt).toLocaleString()}

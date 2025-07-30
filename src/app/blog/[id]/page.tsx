@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Blog, BlogService } from "@/services/blog.service";
 import { CategoryService, Category } from "@/services/category.service";
 import { Button } from "@/components/ui/button";
+import BlogPublishModal from "@/components/BlogPublishModal"; // Import BlogPublishModal
 
 export default function BlogDetailPage() {
   const router = useRouter();
@@ -15,9 +16,7 @@ export default function BlogDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
-  const [showReviewDialog, setShowReviewDialog] = useState(false);
-  const [reviewStatus, setReviewStatus] = useState("");
-  const [reviewReason, setReviewReason] = useState("");
+  const [showPublishDialog, setShowPublishDialog] = useState(false); // New state for publish dialog
   const [categoryName, setCategoryName] = useState<string>("");
 
   useEffect(() => {
@@ -44,37 +43,11 @@ export default function BlogDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const handleSubmitReview = async () => {
-    if (!blog) return;
-    setActionLoading(true);
-    try {
-      await BlogService.submitReview(blog.id);
-      router.refresh();
-    } catch (err: any) {
-      setError(err?.message || "Lỗi gửi duyệt");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleDirectPublish = async () => {
-    if (!blog) return;
-    setActionLoading(true);
-    try {
-      await BlogService.directPublish(blog.id);
-      router.refresh();
-    } catch (err: any) {
-      setError(err?.message || "Lỗi publish trực tiếp");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   const handlePublish = async () => {
     if (!blog) return;
     setActionLoading(true);
     try {
-      await BlogService.publish(blog.id);
+      await BlogService.publish(blog.id, {});
       router.refresh();
     } catch (err: any) {
       setError(err?.message || "Lỗi publish");
@@ -91,27 +64,6 @@ export default function BlogDetailPage() {
       router.push("/blog");
     } catch (err: any) {
       setError(err?.message || "Lỗi archive");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleReview = async () => {
-    if (!blog) return;
-    setActionLoading(true);
-    try {
-      await BlogService.review(blog.id, {
-        status: reviewStatus,
-        ...(reviewStatus === "REJECTED" && { rejectionReason: reviewReason }),
-        ...(reviewStatus === "NEEDS_REVISION" && {
-          revisionNotes: reviewReason,
-        }),
-      });
-      setShowReviewDialog(false);
-      setReviewReason("");
-      router.refresh();
-    } catch (err: any) {
-      setError(err?.message || "Lỗi review");
     } finally {
       setActionLoading(false);
     }
@@ -146,13 +98,16 @@ export default function BlogDetailPage() {
         </div>
         {/* Content section (takes full width on small screens, 1/2 on medium and up) */}
         <div className="w-full md:w-1/2 flex flex-col">
-          <div className="bg-white dark:bg-card/80 rounded-lg shadow-lg p-6 flex-1">
+          <div className="p-6 flex-1">
             <h1 className="text-3xl font-bold mb-4 text-primary leading-tight">
               {blog.title}
             </h1>
-            <div className="mb-6 text-sm font-medium text-gray-600">
+            <div className="mb-2 text-sm font-medium text-gray-600">
               Chủ đề: {categoryName}
             </div>
+            <div className="text-gray-500 text-sm mb-5">
+                  Tác giả: {blog.author.firstName} {blog.author.lastName}
+                </div>
             <div className="prose prose-lg max-w-none text-gray-800 dark:text-gray-200 leading-relaxed">
               {/* Render HTML content directly if blog.content is HTML */}
               <div dangerouslySetInnerHTML={{ __html: blog.content }} />
@@ -160,6 +115,17 @@ export default function BlogDetailPage() {
           </div>
         </div>
       </div>
+
+      {showPublishDialog && blog && (
+        <BlogPublishModal
+          blog={blog}
+          onClose={() => setShowPublishDialog(false)}
+          onPublishSuccess={() => {
+            setShowPublishDialog(false);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }
