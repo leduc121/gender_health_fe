@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -20,16 +21,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Appointment,
   AppointmentService,
   GetAppointmentsQuery,
-  AppointmentStatus,
   UpdateAppointmentDto,
   CancelAppointmentDto,
 } from "@/services/appointment.service";
-import { User, UserService } from "@/services/user.service"; // New import
+import { ChatService } from "@/services/chat.service";
+import { User, UserService } from "@/services/user.service";
+import { Appointment } from "@/types/api.d"; // Import Appointment from global types
+import { ConsultantProfile, ConsultantService } from "@/services/consultant.service"; // Import ConsultantProfile and ConsultantService
 import { API_FEATURES } from "@/config/api";
 import { Pagination } from "@/components/ui/pagination";
+import { PaginationInfo } from "@/components/ui/pagination-info";
 import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns"; // For date formatting
 import {
@@ -41,9 +44,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label"; // Ensure Label is imported
+import { MessageSquare } from "lucide-react";
+import { ChatRoom } from "@/services/chat.service"; // Import ChatRoom type
 
 export default function AppointmentManagementTable() {
   const { toast } = useToast();
+  const router = useRouter();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +59,8 @@ export default function AppointmentManagementTable() {
   const [filterStatus, setFilterStatus] = useState<string>(""); // For filtering by appointment status
   const [filterConsultantId, setFilterConsultantId] = useState<string>(""); // For filtering by consultant
   const [filterUserId, setFilterUserId] = useState<string>(""); // For filtering by user/customer
-  const [usersMap, setUsersMap] = useState<Map<string, User>>(new Map()); // Cache for user details
+const [usersMap, setUsersMap] = useState<Map<string, User>>(new Map()); // Cache for user details
+const [consultantsMap, setConsultantsMap] = useState<Map<string, ConsultantProfile>>(new Map()); // Cache for consultant details
   const [isViewAppointmentDetailDialogOpen, setIsViewAppointmentDetailDialogOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [isAddAppointmentDialogOpen, setIsAddAppointmentDialogOpen] = useState(false);
@@ -61,7 +68,7 @@ export default function AppointmentManagementTable() {
 
   const limit = API_FEATURES.PAGINATION.DEFAULT_LIMIT;
 
-  const fetchAppointments = async () => {
+const fetchAppointments = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -73,7 +80,7 @@ export default function AppointmentManagementTable() {
       };
 
       if (filterStatus) {
-        query.status = filterStatus;
+        query.status = filterStatus as Appointment["status"] || undefined;
       }
       if (filterConsultantId) {
         query.consultantId = filterConsultantId;
@@ -81,49 +88,70 @@ export default function AppointmentManagementTable() {
       if (filterUserId) {
         query.userId = filterUserId;
       }
-      // Note: Backend API for appointments doesn't directly support search by name/email in a single query param.
-      // For `searchQuery`, you might need to fetch all, then filter client-side, or add specific backend endpoints.
-      // For now, `searchQuery` will not be directly applied as a filter to the API call.
 
       const response = await AppointmentService.getAllAppointments(query);
       let fetchedAppointments = response.data;
 
-      // Collect all unique user IDs from fetched appointments that are not yet in usersMap
+      // Fetch user details
       const userIdsToFetch = new Set<string>();
       fetchedAppointments.forEach(app => {
         if (app.userId && !usersMap.has(app.userId)) {
           userIdsToFetch.add(app.userId);
         }
       });
-
-      // Fetch details for new users
       const newUsersPromises = Array.from(userIdsToFetch).map(userId =>
-        UserService.getUserById(userId).catch(err => {
+        UserService.getUserById(userId).catch((err: any) => {
           console.error(`Error fetching user details for ${userId}:`, err);
-          return null; // Return null for failed fetches
+          return null;
         })
       );
       const fetchedNewUsers = (await Promise.all(newUsersPromises)).filter(Boolean) as User[];
-
-      // Update the usersMap with newly fetched users
       const updatedUsersMap = new Map(usersMap);
       fetchedNewUsers.forEach(user => updatedUsersMap.set(user.id, user));
-      setUsersMap(updatedUsersMap); // Update the state once
+      setUsersMap(updatedUsersMap);
 
-      // Map user details into appointments
-      const appointmentsWithUserDetails = fetchedAppointments.map(app => {
-        if (app.userId && updatedUsersMap.has(app.userId)) {
-          return { ...app, user: updatedUsersMap.get(app.userId) };
+      // Fetch consultant details
+      const consultantIdsToFetch = new Set<string>();
+      fetchedAppointments.forEach(app => {
+        if (app.consultantId && !consultantsMap.has(app.consultantId)) {
+          consultantIdsToFetch.add(app.consultantId);
         }
-        // If user was already in map but not attached to appointment (e.g., initial load)
-        if (app.userId && usersMap.has(app.userId)) {
-          return { ...app, user: usersMap.get(app.userId) };
-        }
-        return app;
       });
 
-      setAppointments(appointmentsWithUserDetails);
-      setTotalAppointments(response.total);
+      const newConsultantsPromises = Array.from(consultantIdsToFetch).map(consultantId =>
+        ConsultantService.getConsultantProfile(consultantId).catch(err => {
+          console.error(`Error fetching consultant details for ${consultantId}:`, err);
+          return null;
+        })
+      );
+      const fetchedNewConsultants = (await Promise.all(newConsultantsPromises)).filter(Boolean) as ConsultantProfile[];
+
+      const updatedConsultantsMap = new Map(consultantsMap);
+      fetchedNewConsultants.forEach(consultant => updatedConsultantsMap.set(consultant.id, consultant));
+      setConsultantsMap(updatedConsultantsMap);
+
+      // Map user and consultant details into appointments
+      const appointmentsWithDetails = fetchedAppointments.map(app => {
+        const appointmentWithDetails = { ...app }; // Create a mutable copy
+
+        // Map user details
+        if (app.userId && updatedUsersMap.has(app.userId)) {
+          appointmentWithDetails.user = updatedUsersMap.get(app.userId);
+        } else if (app.userId && usersMap.has(app.userId)) { // Fallback for already mapped users
+          appointmentWithDetails.user = usersMap.get(app.userId);
+        }
+
+        // Map consultant details
+        if (app.consultantId && updatedConsultantsMap.has(app.consultantId)) {
+          appointmentWithDetails.consultant = updatedConsultantsMap.get(app.consultantId);
+        } else if (app.consultantId && consultantsMap.has(app.consultantId)) { // Fallback for already mapped consultants
+          appointmentWithDetails.consultant = consultantsMap.get(app.consultantId);
+        }
+        return appointmentWithDetails;
+      });
+
+      setAppointments(appointmentsWithDetails);
+      setTotalAppointments(response.meta.totalItems);
     } catch (err: any) {
       console.error("Error fetching appointments:", err);
       setError(err?.message || "Lỗi khi tải danh sách cuộc hẹn.");
@@ -145,7 +173,7 @@ export default function AppointmentManagementTable() {
       await AppointmentService.updateAppointmentStatus(id, { status: newStatus });
       toast({
         title: "Thành công",
-        description: `Trạng thái cuộc hẹn đã được cập nhật thành ${AppointmentService.getStatusText(newStatus)}`,
+        description: `Trạng thái cuộc hẹn đã được cập nhật thành ${AppointmentService.getStatusText(newStatus as Appointment["status"])}`,
       });
       fetchAppointments();
     } catch (err: any) {
@@ -176,7 +204,6 @@ export default function AppointmentManagementTable() {
   };
 
   const totalPages = Math.ceil(totalAppointments / limit);
-  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
 
   const handleNextPage = () => {
     if (currentPage < totalPages) {
@@ -196,6 +223,37 @@ export default function AppointmentManagementTable() {
 
   const handleLastPage = () => {
     setCurrentPage(totalPages);
+  };
+
+  const getPageNumbers = () => {
+    const pageNumbers = [];
+    const maxPagesToShow = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+    let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+
+    if (endPage - startPage + 1 < maxPagesToShow) {
+      startPage = Math.max(1, endPage - maxPagesToShow + 1);
+    }
+
+    if (startPage > 1) {
+      pageNumbers.push(1);
+      if (startPage > 2) {
+        pageNumbers.push(-1);
+      }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pageNumbers.push(i);
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        pageNumbers.push(-1);
+      }
+      pageNumbers.push(totalPages);
+    }
+
+    return pageNumbers;
   };
 
   const handleViewAppointmentDetailsClick = (appointment: Appointment) => {
@@ -223,6 +281,26 @@ export default function AppointmentManagementTable() {
       title: "Thành công",
       description: "Cuộc hẹn mới đã được thêm.",
     });
+  };
+
+  const handleJoinChat = async (appointment: Appointment) => {
+    try {
+      const chatRoom: ChatRoom = await ChatService.getChatRoomByAppointmentId(appointment.id);
+
+      // If appointment has no notes or empty notes, send a default message
+      if (!appointment.notes || appointment.notes.trim() === "") {
+        await ChatService.sendAppointmentMessage(chatRoom.id, { content: "Chào bạn" }); // Changed to sendAppointmentMessage
+      }
+
+      router.push(`/chat/${chatRoom.id}`);
+    } catch (err: any) {
+      toast({
+        title: "Lỗi",
+        description: `Không thể vào phòng chat: ${err.message || "Đã xảy ra lỗi không xác định."}`,
+        variant: "destructive",
+      });
+      console.error("Error getting chat room or sending initial message:", err);
+    }
   };
 
   const getLocationText = (location: string | undefined): string => {
@@ -316,14 +394,14 @@ export default function AppointmentManagementTable() {
                     {appointment.user ? `${appointment.user.firstName} ${appointment.user.lastName}` : "N/A"}
                   </TableCell>
                   <TableCell>{appointment.consultant?.firstName} {appointment.consultant?.lastName || "N/A"}</TableCell>
-                  <TableCell>{appointment.service?.name || "Tư vấn chung"}</TableCell>
+                  <TableCell>{appointment.service?.name || "Tư vấn trực tuyến"}</TableCell>
                   <TableCell>
                     {format(new Date(appointment.appointmentDate), "dd/MM/yyyy HH:mm")}
                   </TableCell>
                   <TableCell>{getLocationText(appointment.appointmentLocation)}</TableCell>
                   <TableCell>
                     <Badge variant={appointment.status === "completed" ? "default" : "secondary"}>
-                      {AppointmentService.getStatusText(appointment.status as AppointmentStatus)}
+                      {AppointmentService.getStatusText(appointment.status)}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -340,13 +418,26 @@ export default function AppointmentManagementTable() {
                           Check-in
                         </Button>
                       )}
-                      {AppointmentService.canCancel(appointment.status as AppointmentStatus) && (
+                      {AppointmentService.canCancel(appointment.status) && (
                         <Button
                           variant="destructive"
                           size="sm"
                           onClick={() => handleCancelAppointment(appointment.id)}
                         >
                           Hủy
+                        </Button>
+                      )}
+                      {["confirmed", "in_progress", "completed"].includes(
+                        appointment.status
+                      ) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleJoinChat(appointment)}
+                          className="flex items-center gap-2"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          Vào chat
                         </Button>
                       )}
                     </div>
@@ -356,18 +447,26 @@ export default function AppointmentManagementTable() {
             </TableBody>
           </Table>
 
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            pageNumbers={pageNumbers}
-            hasNextPage={currentPage < totalPages}
-            hasPreviousPage={currentPage > 1}
-            onPageChange={handlePageChange}
-            onNextPage={handleNextPage}
-            onPreviousPage={handlePreviousPage}
-            onFirstPage={handleFirstPage}
-            onLastPage={handleLastPage}
-          />
+          <div className="flex justify-between items-center mt-4">
+            <PaginationInfo
+              totalItems={totalAppointments}
+              itemsPerPage={limit}
+              currentPage={currentPage}
+              itemName="cuộc hẹn"
+            />
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageNumbers={getPageNumbers()}
+              hasNextPage={currentPage < totalPages}
+              hasPreviousPage={currentPage > 1}
+              onPageChange={handlePageChange}
+              onNextPage={handleNextPage}
+              onPreviousPage={handlePreviousPage}
+              onFirstPage={handleFirstPage}
+              onLastPage={handleLastPage}
+            />
+          </div>
         </>
       )}
 
@@ -454,7 +553,7 @@ export default function AppointmentManagementTable() {
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Tư vấn viên:</Label>
-                <span className="col-span-3">{selectedAppointment.consultant?.firstName} {selectedAppointment.consultant?.lastName || "N/A"}</span>
+                <span className="col-span-3">{selectedAppointment.consultant?.user?.firstName} {selectedAppointment.consultant?.user?.lastName || "N/A"}</span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Dịch vụ:</Label>
@@ -472,7 +571,7 @@ export default function AppointmentManagementTable() {
                 <Label className="text-right">Trạng thái:</Label>
                 <span className="col-span-3">
                   <Badge variant={selectedAppointment.status === "completed" ? "default" : "secondary"}>
-                    {AppointmentService.getStatusText(selectedAppointment.status as AppointmentStatus)}
+                    {AppointmentService.getStatusText(selectedAppointment.status)}
                   </Badge>
                 </span>
               </div>

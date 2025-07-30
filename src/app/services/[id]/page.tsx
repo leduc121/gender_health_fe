@@ -5,8 +5,12 @@ import { useParams } from "next/navigation";
 import { APIService, Service } from "@/services/service.service";
 import Image from "next/image";
 import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import AuthDialog from "@/components/AuthDialog";
 
 export default function ServiceDetailPage() {
+  const { isAuthenticated } = useAuth();
   const params = useParams();
   const id = params.id; // id có thể là string hoặc undefined
   const [service, setService] = useState<Service | null>(null);
@@ -80,9 +84,9 @@ export default function ServiceDetailPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
           {/* Service Image */}
           <div className="relative w-full h-96 rounded-2xl overflow-hidden shadow-2xl">
-            {service.imageUrl ? (
+            {service.images && service.images.length > 0 ? (
               <Image
-                src={service.imageUrl}
+                src={service.images[0].url}
                 alt={service.name}
                 fill
                 className="object-cover"
@@ -99,12 +103,13 @@ export default function ServiceDetailPage() {
             <h1 className="text-4xl md:text-5xl font-extrabold text-primary mb-4">
               {service.name}
             </h1>
-            <div
-              className="text-lg text-muted-foreground mb-6"
-              dangerouslySetInnerHTML={{
-                __html: service.htmlDescription || service.description || "Không có mô tả.",
-              }}
-            />
+              <div className="max-h-[400px] overflow-y-auto p-4 border rounded-md text-lg text-muted-foreground mb-6">
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html: service.htmlDescription || service.description || "Không có mô tả.",
+                  }}
+                />
+              </div>
             <div className="flex flex-col gap-3 text-lg mb-8">
               <div className="flex items-center gap-3">
                 <span className="font-bold text-primary">Giá:</span>
@@ -142,15 +147,33 @@ export default function ServiceDetailPage() {
               </div>
             </div>
             <div className="flex gap-4">
-              <Link href={`/appointments?serviceId=${service.id}`}>
-                <button className="px-8 py-3 rounded-full font-bold bg-primary text-white shadow-lg hover:bg-primary/90 transition text-lg">
-                  Đặt lịch ngay
-                </button>
-              </Link>
+              {isAuthenticated ? (
+                <Link href={`/appointments?serviceId=${service.id}`}>
+                  <Button className="px-8 py-3 rounded-full font-bold bg-primary text-white shadow-lg hover:bg-primary/90 transition text-lg">
+                    Đặt lịch ngay
+                  </Button>
+                </Link>
+              ) : (
+                <div className="flex flex-col items-start">
+                  <p className="text-red-500 mb-2">
+                    Vui lòng đăng nhập để đặt lịch.
+                  </p>
+                  <AuthDialog
+                    trigger={
+                      <Button className="px-8 py-3 rounded-full font-bold bg-primary text-white shadow-lg hover:bg-primary/90 transition text-lg">
+                        Đăng nhập ngay
+                      </Button>
+                    }
+                  />
+                </div>
+              )}
               <Link href="/services">
-                <button className="px-8 py-3 rounded-full font-bold border-2 border-primary text-primary bg-transparent hover:bg-primary/10 transition text-lg">
+                <Button
+                  variant="outline"
+                  className="px-8 py-3 rounded-full font-bold border-2 border-primary text-primary bg-transparent hover:bg-primary/10 transition text-lg"
+                >
                   Xem các dịch vụ khác
-                </button>
+                </Button>
               </Link>
             </div>
           </div>

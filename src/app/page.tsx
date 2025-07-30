@@ -144,9 +144,9 @@ export default function HomePage() {
               onClick={() => (window.location.href = `/services/${service.id}`)}
             >
               <div className="h-40 w-full bg-gradient-to-br from-secondary/10 to-primary/10 dark:from-secondary/20 dark:to-primary/20 rounded-xl flex items-center justify-center mb-2 overflow-hidden relative">
-                {service.imageUrl ? (
+                {service.images && service.images.length > 0 ? (
                   <Image
-                    src={service.imageUrl}
+                    src={service.images[0].url}
                     alt={service.name}
                     fill
                     className="object-cover w-full h-full rounded-xl group-hover:scale-105 transition-transform"
@@ -247,6 +247,9 @@ export default function HomePage() {
                 >
                   {blog.title}
                 </h3>
+                <div className="text-gray-500 text-sm mb-1">
+                  Tác giả: {blog.author.firstName} {blog.author.lastName}
+                </div>
                 <p className="text-base text-muted-foreground line-clamp-3">
                   {blog.summary || blog.content?.slice(0, 100) + "..."}
                 </p>

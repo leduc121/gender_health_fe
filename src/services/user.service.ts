@@ -1,8 +1,10 @@
 import { apiClient } from "./api";
 import { API_ENDPOINTS } from "@/config/api";
+import { ConsultantProfile } from "./consultant.service"; // Import ConsultantProfile
 
 export interface User {
   id: string;
+  fullName?: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -16,6 +18,7 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   roleId?: string; // Add roleId here for convenience in forms
+  consultantProfile?: ConsultantProfile; // Add consultantProfile
 }
 
 export interface Role {
@@ -47,7 +50,7 @@ export interface CreateUserPayload {
   phone?: string;
   address?: string;
   gender?: string;
-  roleId: string;
+  role: string;
 }
 
 export interface UpdateUserPayload {
@@ -59,7 +62,7 @@ export interface UpdateUserPayload {
   gender?: string;
   phone?: string;
   address?: string;
-  roleId?: string;
+  role?: string;
   profilePicture?: string;
   locale?: string;
   healthDataConsent?: boolean;

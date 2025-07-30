@@ -58,6 +58,8 @@ export const API_ENDPOINTS = {
     REGISTER: "/consultant-profiles/register",
     APPROVE: (id: string) => `/consultant-profiles/${id}/approve`,
     REJECT: (id: string) => `/consultant-profiles/${id}/reject`,
+    ME: "/consultant-profiles/me", // Endpoint to get my consultant profile
+    UPDATE_MY_PROFILE: "/consultant-profiles/me", // Endpoint to update my consultant profile
     SCHEDULE: (id: string) => `/consultant-profiles/${id}/working-hours`,
     PENDING_APPROVAL: "/consultant-profiles/pending-approval",
     UPDATE_WORKING_HOURS: (id: string) => `/consultant-profiles/${id}/working-hours`,
@@ -166,6 +168,13 @@ export const API_ENDPOINTS = {
     MONTHLY: "/revenue-stats/monthly",
     YEARLY: "/revenue-stats/yearly",
     REPORT: "/revenue-stats/report",
+  },
+
+  // Payments
+  PAYMENTS: {
+    GET_ALL: "/payments/admin/all",
+    GET_MY_PAYMENTS: "/payments/my-payments", // Added for customer payment history
+    VERIFY: "/payments/verify", // New endpoint for payment verification
   },
 
   // Roles

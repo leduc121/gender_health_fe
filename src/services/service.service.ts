@@ -1,5 +1,8 @@
+
+import { Category } from '@/services/category.service';
 import { apiClient } from "./api"; // Changed to apiClient
 import { API_ENDPOINTS } from "@/config/api";
+import { UploadImageResponse, CreateServiceImageDto, Image } from "@/types/api";
 
 export interface Service {
   id: string;
@@ -10,7 +13,7 @@ export interface Service {
   duration: number;
   categoryId: string;
   requiresConsultant: boolean;
-  imageUrl?: string;
+  images?: Image[]; // Changed from imageUrl to images array
   shortDescription?: string;
   prerequisites?: string;
   postInstructions?: string;
@@ -20,6 +23,7 @@ export interface Service {
   isActive?: boolean;
   createdAt: string; // Add createdAt
   updatedAt: string; // Add updatedAt
+  category : Category;
 }
 
 export interface GetServicesQuery {
@@ -123,6 +127,36 @@ export const APIService = {
       await apiClient.delete<void>(API_ENDPOINTS.SERVICES.BY_ID(id));
     } catch (error) {
       console.error("[APIService] Error deleting service:", error);
+      throw error;
+    }
+  },
+
+  async uploadServiceImage(file: File, serviceId: string): Promise<UploadImageResponse> {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("entityType", "service");
+      formData.append("entityId", serviceId);
+      formData.append("isPublic", "true"); // Assuming images for services are public
+
+      const response = await apiClient.post<UploadImageResponse>(API_ENDPOINTS.FILES.UPLOAD_IMAGE, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return response;
+    } catch (error) {
+      console.error("[APIService] Error uploading service image:", error);
+      throw error;
+    }
+  },
+
+  async addImageToService(serviceId: string, imageId: string): Promise<void> {
+    try {
+      const data: CreateServiceImageDto = { serviceId, imageId };
+      await apiClient.post<void>(API_ENDPOINTS.SERVICES.ADD_IMAGE, data);
+    } catch (error) {
+      console.error("[APIService] Error adding image to service:", error);
       throw error;
     }
   },

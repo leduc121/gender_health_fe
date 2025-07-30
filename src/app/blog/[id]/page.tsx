@@ -43,10 +43,6 @@ export default function BlogDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const handleDirectPublish = () => {
-    setShowPublishDialog(true);
-  };
-
   const handlePublish = async () => {
     if (!blog) return;
     setActionLoading(true);
@@ -102,13 +98,16 @@ export default function BlogDetailPage() {
         </div>
         {/* Content section (takes full width on small screens, 1/2 on medium and up) */}
         <div className="w-full md:w-1/2 flex flex-col">
-          <div className="bg-white dark:bg-card/80 rounded-lg shadow-lg p-6 flex-1">
+          <div className="p-6 flex-1">
             <h1 className="text-3xl font-bold mb-4 text-primary leading-tight">
               {blog.title}
             </h1>
-            <div className="mb-6 text-sm font-medium text-gray-600">
+            <div className="mb-2 text-sm font-medium text-gray-600">
               Chủ đề: {categoryName}
             </div>
+            <div className="text-gray-500 text-sm mb-5">
+                  Tác giả: {blog.author.firstName} {blog.author.lastName}
+                </div>
             <div className="prose prose-lg max-w-none text-gray-800 dark:text-gray-200 leading-relaxed">
               {/* Render HTML content directly if blog.content is HTML */}
               <div dangerouslySetInnerHTML={{ __html: blog.content }} />
@@ -125,7 +124,6 @@ export default function BlogDetailPage() {
             setShowPublishDialog(false);
             router.refresh();
           }}
-          isDirectPublish={true}
         />
       )}
     </div>
