@@ -89,6 +89,7 @@ export default function AppointmentsPage() {
   const router = useRouter();
 
   useEffect(() => {
+    console.log("[AppointmentsPage] Fetching services from APIService.getAll()");
     setLoadingServices(true);
     APIService.getAll()
       .then(({ data }) => {
@@ -110,6 +111,7 @@ export default function AppointmentsPage() {
 
   useEffect(() => {
     if (!loadingServices && services.length > 0) {
+    
       const serviceIdFromUrl = searchParams.get("serviceId"); // Use "serviceId" as parameter name
       if (serviceIdFromUrl) {
         // Find Service directly by its ID
@@ -133,9 +135,11 @@ export default function AppointmentsPage() {
       }
     }
   }, [loadingServices, services, searchParams, toast]);
+  
 
   const selectedServices = services
     .filter((s) => selectedServiceIds.includes(s.id)); // No longer need to map s.service
+
 
   const needsConsultant = selectedServices.some((s) => s.requiresConsultant);
 
@@ -232,6 +236,7 @@ export default function AppointmentsPage() {
       });
       return;
     }
+
 
     try {
       const firstSelectedService = services.find((s) => selectedServiceIds.includes(s.id));
@@ -340,6 +345,34 @@ export default function AppointmentsPage() {
       });
     }
   };
+  
+  // Refactored handler for service selection
+  const handleServiceSelect = (item: Service) => {
+    const isStiServiceType = item.type === 'STI_TEST';
+    const hasStiServiceSelected = selectedServices.some(s => s.type === 'STI_TEST');
+
+    if (isStiServiceType) {
+      // If an STI service is clicked, it becomes the only selected service, or deselects if already selected.
+      setSelectedServiceIds(prev =>
+        prev.includes(item.id) ? [] : [item.id]
+      );
+    } else if (hasStiServiceSelected) {
+      // If an STI service is already selected, prevent selecting any other type of service.
+      toast({
+        title: "Lưu ý",
+        description: "Bạn không thể chọn dịch vụ khác khi đã chọn dịch vụ xét nghiệm STI.",
+        variant: "default",
+      });
+    } else {
+      // For general services, allow multiple selections.
+      setSelectedServiceIds((prev) =>
+        prev.includes(item.id)
+          ? prev.filter((id) => id !== item.id)
+          : [...prev, item.id]
+      );
+    }
+  };
+
 
   // Phân quyền: chỉ Customer mới đặt được lịch (giả sử user?.role === 'customer')
   // const canBook = user?.role === 'customer';
@@ -360,7 +393,7 @@ export default function AppointmentsPage() {
                   <span className="ml-2 text-green-700">
                     ({service.price.toLocaleString()} VNĐ)
                   </span>
-                )}
+                  )}
                 {service.requiresConsultant && (
                   <span className="ml-2 text-xs text-blue-600">
                     [Cần tư vấn viên]
@@ -429,51 +462,11 @@ export default function AppointmentsPage() {
                         <div
                           key={item.id}
                           className={`rounded-xl border p-4 flex flex-col gap-2 shadow-sm transition cursor-pointer hover:border-primary ${selectedServiceIds.includes(item.id) ? "border-primary bg-primary/5" : ""}`}
-                          onClick={() => {
-                            const isStiServiceType = item.type === 'STI_TEST';
-                            const hasStiServiceSelected = selectedServices.some(s => s.type === 'STI_TEST');
-
-                            if (isStiServiceType) {
-                              setSelectedServiceIds(prev =>
-                                prev.includes(item.id) ? [] : [item.id]
-                              );
-                            } else if (hasStiServiceSelected) {
-                              toast({
-                                title: "Lưu ý",
-                                description: "Bạn không thể chọn dịch vụ khác khi đã chọn dịch vụ xét nghiệm STI.",
-                                variant: "default",
-                              });
-                            } else {
-                              setSelectedServiceIds((prev) =>
-                                prev.includes(item.id)
-                                  ? prev.filter((id) => id !== item.id)
-                                  : [...prev, item.id]
-                              );
-                            }
-                          }}
+                          onClick={() => handleServiceSelect(item)}
                           tabIndex={0}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
-                              const isStiServiceType = item.type === 'STI_TEST';
-                              const hasStiServiceSelected = selectedServices.some(s => s.type === 'STI_TEST');
-
-                              if (isStiServiceType) {
-                                setSelectedServiceIds(prev =>
-                                  prev.includes(item.id) ? [] : [item.id]
-                                );
-                              } else if (hasStiServiceSelected) {
-                                toast({
-                                  title: "Lưu ý",
-                                  description: "Bạn không thể chọn dịch vụ khác khi đã chọn dịch vụ xét nghiệm STI.",
-                                  variant: "default",
-                                });
-                              } else {
-                                setSelectedServiceIds((prev) =>
-                                  prev.includes(item.id)
-                                    ? prev.filter((id) => id !== item.id)
-                                    : [...prev, item.id]
-                                );
-                              }
+                              handleServiceSelect(item);
                             }
                           }}
                           role="checkbox"
@@ -667,44 +660,41 @@ export default function AppointmentsPage() {
                               return aMinute - bMinute;
                             });
 
-                            return sortedGroupedSlots.map((group: any) => (
-                              <label
-                                key={group.displayTime}
-                                className={`flex items-center gap-4 p-4 border rounded-xl shadow-sm cursor-pointer transition hover:border-primary ${
-                                  selectedSlot &&
-                                  formatTimeKey(new Date(selectedSlot.dateTime)) === group.displayTime
-                                    ? "border-primary bg-primary/5"
-                                    : ""
-                                }`}
-                                tabIndex={0}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
-                                    setSelectedSlot(group.originalSlots[0]);
-                                  }
-                                }}
-                                aria-label={`Chọn khung giờ ${group.displayTime} còn ${group.totalRemainingSlots} slot`}
-                              >
-                                <input
-                                  type="radio"
-                                  name="slot"
-                                  checked={Boolean(
-                                    selectedSlot &&
-                                    formatTimeKey(new Date(selectedSlot.dateTime)) === group.displayTime
-                                  )}
-                                  onChange={() => setSelectedSlot(group.originalSlots[0])}
-                                  className="accent-primary w-5 h-5"
-                                  aria-hidden="true" // Radio button is visually present, but its state is controlled by the parent label's click/keydown
-                                />
-                                <div className="flex-1">
-                                  <div className="font-semibold text-lg text-primary">
-                                    {group.displayTime}
+                            return sortedGroupedSlots.map((group: any) => {
+                               const isSlotSelected = selectedSlot && formatTimeKey(new Date(selectedSlot.dateTime)) === group.displayTime;
+                               return (
+                                <label
+                                  key={group.displayTime}
+                                  className={`flex items-center gap-4 p-4 border rounded-xl shadow-sm cursor-pointer transition hover:border-primary ${
+                                    isSlotSelected ? "border-primary bg-primary/5" : ""
+                                  }`}
+                                  tabIndex={0}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      setSelectedSlot(group.originalSlots[0]);
+                                    }
+                                  }}
+                                  aria-label={`Chọn khung giờ ${group.displayTime} còn ${group.totalRemainingSlots} slot`}
+                                >
+                                  <input
+                                    type="radio"
+                                    name="slot"
+                                    checked={Boolean(isSlotSelected)}
+                                    onChange={() => setSelectedSlot(group.originalSlots[0])}
+                                    className="accent-primary w-5 h-5"
+                                    aria-hidden="true" // Radio button is visually present, but its state is controlled by the parent label's click/keydown
+                                  />
+                                  <div className="flex-1">
+                                    <div className="font-semibold text-lg text-primary">
+                                      {group.displayTime}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">
+                                      Còn {group.totalRemainingSlots} slot
+                                    </div>
                                   </div>
-                                  <div className="text-sm text-muted-foreground">
-                                    Còn {group.totalRemainingSlots} slot
-                                  </div>
-                                </div>
-                              </label>
-                            ));
+                                </label>
+                              )
+                            });
                           })()}
                         </div>
                       )}
@@ -770,7 +760,6 @@ export default function AppointmentsPage() {
                   )}
                 </div>
               )}
-              {/* Bước 4: Xác nhận */}
               {/* Bước 4: Ghi chú và xác nhận */}
               {step === 4 && (
                 <div>

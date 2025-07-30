@@ -5,8 +5,13 @@ import { Blog, BlogService } from "@/services/blog.service";
 import { cn } from "@/lib/utils";
 
 interface BlogReviewModalProps {
+import { Blog, BlogService } from "@/services/blog.service";
+import { cn } from "@/lib/utils";
+
+interface BlogReviewModalProps {
   blog: Blog | null;
   onClose: () => void;
+  onReviewSuccess: () => void;
   onReviewSuccess: () => void;
 }
 
@@ -14,11 +19,15 @@ export default function BlogReviewModal({
   blog,
   onClose,
   onReviewSuccess,
+  onReviewSuccess,
 }: BlogReviewModalProps) {
+  const [reviewStatus, setReviewStatus] = useState("approved");
   const [reviewStatus, setReviewStatus] = useState("approved");
   const [reason, setReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
@@ -27,9 +36,11 @@ export default function BlogReviewModal({
       setReason("");
       setError("");
       setSuccess("");
+      setSuccess("");
     }
   }, [blog]);
 
+  const handleReview = async () => {
   const handleReview = async () => {
     if (!blog) return;
     setActionLoading(true);
@@ -79,24 +90,33 @@ export default function BlogReviewModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-xl relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-xl relative">
         <button
+          className="absolute top-2 right-2 text-xl"
           className="absolute top-2 right-2 text-xl"
           onClick={onClose}
           aria-label="Đóng"
+          tabIndex={0}
           tabIndex={0}
         >
           &times;
         </button>
         <h2 className="text-xl font-bold mb-2">{blog.title}</h2>
         <div className="mb-4">{blog.content}</div>
+        <h2 className="text-xl font-bold mb-2">{blog.title}</h2>
+        <div className="mb-4">{blog.content}</div>
         <div className="mb-4">
+          <label htmlFor="reviewStatus" className="font-medium">Trạng thái review</label>
           <label htmlFor="reviewStatus" className="font-medium">Trạng thái review</label>
           <select
             id="reviewStatus"
             className="w-full border rounded px-2 py-1 mt-1"
+            className="w-full border rounded px-2 py-1 mt-1"
             value={reviewStatus}
             onChange={(e) => {
               setReviewStatus(e.target.value);
+              setReason("");
               setReason("");
             }}
           >
@@ -121,20 +141,47 @@ export default function BlogReviewModal({
           </div>
         )}
         {reviewStatus === "rejected" && (
+        {reviewStatus === "approved" && (
           <div className="mb-4">
+            <label htmlFor="revisionNotes" className="font-medium">
+              Ghi chú chỉnh sửa (revisionNotes)
+            </label>
+            <textarea
+              id="revisionNotes"
+              className="w-full border rounded px-2 py-1 mt-1"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              required
+              placeholder="Nhập ghi chú chỉnh sửa"
+            />
+          </div>
+        )}
+        {reviewStatus === "rejected" && (
+          <div className="mb-4">
+            <label htmlFor="rejectionReason" className="font-medium">
+              Lý do từ chối (rejectionReason)
             <label htmlFor="rejectionReason" className="font-medium">
               Lý do từ chối (rejectionReason)
             </label>
             <textarea
               id="rejectionReason"
               className="w-full border rounded px-2 py-1 mt-1"
+              id="rejectionReason"
+              className="w-full border rounded px-2 py-1 mt-1"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
+              required
+              placeholder="Nhập lý do từ chối"
               required
               placeholder="Nhập lý do từ chối"
             />
           </div>
         )}
+        {error && <div className="text-red-500 mb-2">{error}</div>}
+        {success && <div className="text-green-600 mb-2">{success}</div>}
+        <div className="flex gap-2 justify-end">
+          <Button onClick={handleReview} disabled={actionLoading}>
+            {actionLoading ? "Đang gửi..." : "Gửi review"}
         {error && <div className="text-red-500 mb-2">{error}</div>}
         {success && <div className="text-green-600 mb-2">{success}</div>}
         <div className="flex gap-2 justify-end">
@@ -146,3 +193,4 @@ export default function BlogReviewModal({
     </div>
   );
 }
+

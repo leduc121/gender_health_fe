@@ -222,6 +222,7 @@ const CancelDialog: React.FC<CancelDialogProps> = ({
           <DialogTitle>Hủy lịch hẹn</DialogTitle>
           <DialogDescription>
             Bạn có chắc chắn muốn hủy lịch hẹn với {appointment.consultant?.firstName} {appointment.consultant?.lastName}?
+            Bạn có chắc chắn muốn hủy lịch hẹn với {appointment.consultant?.firstName} {appointment.consultant?.lastName}?
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -287,7 +288,9 @@ const AppointmentCard: React.FC<{
           <div className="flex items-center space-x-3">
             <Avatar className="w-12 h-12">
               <AvatarImage src={appointment.consultant?.profilePicture} alt={`${appointment.consultant?.firstName} ${appointment.consultant?.lastName}`} />
+              <AvatarImage src={appointment.consultant?.profilePicture} alt={`${appointment.consultant?.firstName} ${appointment.consultant?.lastName}`} />
               <AvatarFallback>
+                {`${appointment.consultant?.firstName?.[0] || ''}${appointment.consultant?.lastName?.[0] || ''}`}
                 {`${appointment.consultant?.firstName?.[0] || ''}${appointment.consultant?.lastName?.[0] || ''}`}
               </AvatarFallback>
             </Avatar>
@@ -296,8 +299,13 @@ const AppointmentCard: React.FC<{
                 {appointment.consultant ? `${appointment.consultant.firstName} ${appointment.consultant.lastName}` : "N/A"}
               </h3>
               <p className="text-sm text-muted-foreground">{appointment.consultant?.qualification || "N/A"}</p>
+              <h3 className="font-semibold text-lg">
+                {appointment.consultant ? `${appointment.consultant.firstName} ${appointment.consultant.lastName}` : "N/A"}
+              </h3>
+              <p className="text-sm text-muted-foreground">{appointment.consultant?.qualification || "N/A"}</p>
               <div className="flex items-center gap-1 mt-1">
                 <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                <span className="text-sm">{appointment.consultant?.rating ? `${appointment.consultant.rating}/5` : "N/A"}</span>
                 <span className="text-sm">{appointment.consultant?.rating ? `${appointment.consultant.rating}/5` : "N/A"}</span>
               </div>
             </div>
@@ -316,11 +324,13 @@ const AppointmentCard: React.FC<{
             <CalendarIcon className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm">
               {isDateValid ? format(appointmentDateObj, "EEEE, dd/MM/yyyy", { locale: vi }) : "N/A"}
+              {isDateValid ? format(appointmentDateObj, "EEEE, dd/MM/yyyy", { locale: vi }) : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm">
+              {isDateValid ? format(appointmentDateObj, "HH:mm") : "N/A"}
               {isDateValid ? format(appointmentDateObj, "HH:mm") : "N/A"}
             </span>
           </div>
@@ -684,6 +694,7 @@ const UserAppointmentManagement: React.FC = () => {
       toast({
         title: "Lỗi",
         description: `Không thể tải danh sách lịch hẹn. Vui lòng thử lại. Lỗi: ${error.message || error}`,
+        description: `Không thể tải danh sách lịch hẹn. Vui lòng thử lại. Lỗi: ${error.message || error}`,
         variant: "destructive",
       });
     } finally {
@@ -772,6 +783,7 @@ const UserAppointmentManagement: React.FC = () => {
       setIsCancelDialogOpen(false);
       setSelectedAppointment(null);
     } catch (error: any) {
+    } catch (error: any) {
       console.error("Error cancelling appointment:", error);
       toast({
         title: "Lỗi",
@@ -849,6 +861,7 @@ const UserAppointmentManagement: React.FC = () => {
 
   const upcomingAppointments = appointments.filter(apt => 
     !AppointmentService.isPastAppointment(apt.appointmentDate) && 
+    ["pending", "confirmed", "scheduled"].includes(apt.status)
     ["pending", "confirmed", "scheduled"].includes(apt.status)
   );
 
@@ -1104,7 +1117,9 @@ const UserAppointmentManagement: React.FC = () => {
               <div className="flex items-center gap-4">
                 <Avatar className="w-16 h-16">
                   <AvatarImage src={selectedAppointment.consultant?.profilePicture} alt={`${selectedAppointment.consultant?.firstName} ${selectedAppointment.consultant?.lastName}`} />
+                  <AvatarImage src={selectedAppointment.consultant?.profilePicture} alt={`${selectedAppointment.consultant?.firstName} ${selectedAppointment.consultant?.lastName}`} />
                   <AvatarFallback>
+                    {`${selectedAppointment.consultant?.firstName?.[0] || ''}${selectedAppointment.consultant?.lastName?.[0] || ''}`}
                     {`${selectedAppointment.consultant?.firstName?.[0] || ''}${selectedAppointment.consultant?.lastName?.[0] || ''}`}
                   </AvatarFallback>
                 </Avatar>
@@ -1113,9 +1128,14 @@ const UserAppointmentManagement: React.FC = () => {
                     {selectedAppointment.consultant ? `${selectedAppointment.consultant.firstName} ${selectedAppointment.consultant.lastName}` : "N/A"}
                   </h3>
                   <p className="text-muted-foreground">{selectedAppointment.consultant?.qualification || "N/A"}</p>
+                  <h3 className="text-xl font-semibold">
+                    {selectedAppointment.consultant ? `${selectedAppointment.consultant.firstName} ${selectedAppointment.consultant.lastName}` : "N/A"}
+                  </h3>
+                  <p className="text-muted-foreground">{selectedAppointment.consultant?.qualification || "N/A"}</p>
                   <div className="flex items-center gap-4 mt-2">
                     <div className="flex items-center gap-1">
                       <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                      <span className="text-sm">{selectedAppointment.consultant?.rating ? `${selectedAppointment.consultant.rating}/5` : "N/A"}</span>
                       <span className="text-sm">{selectedAppointment.consultant?.rating ? `${selectedAppointment.consultant.rating}/5` : "N/A"}</span>
                     </div>
                     <Badge className={getStatusColor(selectedAppointment.status)}>
@@ -1136,11 +1156,19 @@ const UserAppointmentManagement: React.FC = () => {
                       const dateObj = new Date(selectedAppointment.appointmentDate);
                       return !isNaN(dateObj.getTime()) ? format(dateObj, "EEEE, dd/MM/yyyy", { locale: vi }) : "N/A";
                     })()}
+                    {(() => {
+                      const dateObj = new Date(selectedAppointment.appointmentDate);
+                      return !isNaN(dateObj.getTime()) ? format(dateObj, "EEEE, dd/MM/yyyy", { locale: vi }) : "N/A";
+                    })()}
                   </p>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Giờ hẹn:</Label>
                   <p className="text-sm">
+                    {(() => {
+                      const dateObj = new Date(selectedAppointment.appointmentDate);
+                      return !isNaN(dateObj.getTime()) ? format(dateObj, "HH:mm") : "N/A";
+                    })()}
                     {(() => {
                       const dateObj = new Date(selectedAppointment.appointmentDate);
                       return !isNaN(dateObj.getTime()) ? format(dateObj, "HH:mm") : "N/A";

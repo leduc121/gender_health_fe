@@ -10,6 +10,8 @@ export interface Service {
   description: string;
   htmlDescription?: string;
   price: number | null;
+  htmlDescription?: string;
+  price: number | null;
   duration: number;
   categoryId: string;
   requiresConsultant: boolean;
@@ -87,6 +89,7 @@ export const APIService = {
       const response = await apiClient.get<Service>(API_ENDPOINTS.SERVICES.BY_ID(id));
       return response;
     } catch (error) {
+      console.error("[APIService] Error in getById:", error);
       console.error("[APIService] Error in getById:", error);
       throw error;
     }
