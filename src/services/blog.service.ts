@@ -7,6 +7,7 @@ import {
   BlogQueryParams,
   PaginationResponse,
 } from "@/types/api.d";
+import { User } from "./user.service";
 
 export interface Blog {
   id: string;
@@ -16,7 +17,7 @@ export interface Blog {
   categoryId: string;
   tags: (string | { id: string; name: string; slug?: string })[];
   authorId: string;
-  author: string;
+  author: User;
   createdAt: string;
   updatedAt: string;
   category?: { id: string; name: string; slug?: string };

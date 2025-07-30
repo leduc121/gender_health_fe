@@ -12,25 +12,25 @@ import AuthDialog from "@/components/AuthDialog";
 export default function ServiceDetailPage() {
   const { isAuthenticated } = useAuth();
   const params = useParams();
-  const id = params.id; // id có thể là string hoặc undefined
-  const id = params.id; // id có thể là string hoặc undefined
+  const id = params.id; // id can be a string or array of strings, or undefined
+
   const [service, setService] = useState<Service | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Chỉ thực hiện fetch nếu id là một chuỗi không rỗng
-    if (typeof id === 'string' && id) {
-    // Chỉ thực hiện fetch nếu id là một chuỗi không rỗng
-    if (typeof id === 'string' && id) {
+    const serviceId = Array.isArray(id) ? id[0] : id;
+
+    // Only fetch if serviceId is a non-empty string
+    if (typeof serviceId === 'string' && serviceId) {
       setLoading(true);
-      APIService.getById(id)
-        .then((data: Service) => { // Changed type to Service directly
+      APIService.getById(serviceId)
+        .then((data: Service) => {
           console.log("[ServiceDetailPage] Fetched service data:", data);
           setService(data);
           setError(null);
         })
-        .catch((err: any) => { // Added type any for error
+        .catch((err: any) => {
           console.error("[ServiceDetailPage] Error fetching service:", err);
           setError("Không thể tải chi tiết dịch vụ. Vui lòng thử lại.");
           setService(null);
@@ -39,17 +39,9 @@ export default function ServiceDetailPage() {
           setLoading(false);
         });
     } else {
-      // Nếu id không phải là string hoặc rỗng, có thể đang trong quá trình tải hoặc lỗi
+      // Handle cases where the ID is invalid or not present
       setLoading(false);
-      if (!id) {
-        setError("ID dịch vụ không hợp lệ.");
-      }
-    } else {
-      // Nếu id không phải là string hoặc rỗng, có thể đang trong quá trình tải hoặc lỗi
-      setLoading(false);
-      if (!id) {
-        setError("ID dịch vụ không hợp lệ.");
-      }
+      setError("ID dịch vụ không hợp lệ.");
     }
   }, [id]);
 
@@ -123,41 +115,34 @@ export default function ServiceDetailPage() {
               <div className="flex items-center gap-3">
                 <span className="font-bold text-primary">Giá:</span>
                 <span className="text-2xl font-bold text-green-700">
-                  {service.price !== null && !isNaN(Number(service.price)) ? Number(service.price).toLocaleString() : "N/A"} VNĐ
-                  {service.price !== null && !isNaN(Number(service.price)) ? Number(service.price).toLocaleString() : "N/A"} VNĐ
+                  {service.price !== null && !isNaN(Number(service.price)) ? `${Number(service.price).toLocaleString()} VNĐ` : "N/A"}
                 </span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-bold text-primary">Thời lượng:</span>
-                <span className="font-semibold">{typeof service.duration === 'number' ? `${service.duration} phút` : "N/A"}</span>
                 <span className="font-semibold">{typeof service.duration === 'number' ? `${service.duration} phút` : "N/A"}</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-bold text-primary">Yêu cầu tư vấn:</span>
                 <span className="font-semibold">
                   {typeof service.requiresConsultant === 'boolean' ? (service.requiresConsultant ? "Có" : "Không") : "N/A"}
-                  {typeof service.requiresConsultant === 'boolean' ? (service.requiresConsultant ? "Có" : "Không") : "N/A"}
                 </span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-bold text-primary">Mô tả ngắn:</span>
                 <span className="font-semibold">{service.shortDescription || "Không có mô tả ngắn."}</span>
-                <span className="font-semibold">{service.shortDescription || "Không có mô tả ngắn."}</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-bold text-primary">Điều kiện tiên quyết:</span>
-                <span className="font-semibold">{service.prerequisites || "Không có."}</span>
                 <span className="font-semibold">{service.prerequisites || "Không có."}</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-bold text-primary">Hướng dẫn sau dịch vụ:</span>
                 <span className="font-semibold">{service.postInstructions || "Không có."}</span>
-                <span className="font-semibold">{service.postInstructions || "Không có."}</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-bold text-primary">Địa điểm:</span>
                 <span className="font-semibold">
-                  {service.location ? (service.location === "online" ? "Trực tuyến" : "Tại văn phòng") : "N/A"}
                   {service.location ? (service.location === "online" ? "Trực tuyến" : "Tại văn phòng") : "N/A"}
                 </span>
               </div>

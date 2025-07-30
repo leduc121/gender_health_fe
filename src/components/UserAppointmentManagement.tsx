@@ -694,7 +694,6 @@ const UserAppointmentManagement: React.FC = () => {
       toast({
         title: "Lỗi",
         description: `Không thể tải danh sách lịch hẹn. Vui lòng thử lại. Lỗi: ${error.message || error}`,
-        description: `Không thể tải danh sách lịch hẹn. Vui lòng thử lại. Lỗi: ${error.message || error}`,
         variant: "destructive",
       });
     } finally {
@@ -783,7 +782,6 @@ const UserAppointmentManagement: React.FC = () => {
       setIsCancelDialogOpen(false);
       setSelectedAppointment(null);
     } catch (error: any) {
-    } catch (error: any) {
       console.error("Error cancelling appointment:", error);
       toast({
         title: "Lỗi",
@@ -861,7 +859,6 @@ const UserAppointmentManagement: React.FC = () => {
 
   const upcomingAppointments = appointments.filter(apt => 
     !AppointmentService.isPastAppointment(apt.appointmentDate) && 
-    ["pending", "confirmed", "scheduled"].includes(apt.status)
     ["pending", "confirmed", "scheduled"].includes(apt.status)
   );
 

@@ -1,52 +1,55 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // The rewrites function acts as a URL proxy.
+  // It forwards requests made to the Next.js app's /api/* path
+  // to the backend server, avoiding CORS issues in the browser.
   async rewrites() {
     return [
       {
-        // Remove the /api prefix when forwarding to the backend
         source: "/api/:path*",
         destination: "https://gender-healthcare.org/:path*",
       },
     ];
   },
 
-  async headers() {
-    return [
-      {
-        source: "/api/:path*",
-        headers: [
-          { key: "Access-Control-Allow-Credentials", value: "true" },
-          {
-            key: "Access-Control-Allow-Origin",
-            value: "http://localhost:3000",
-          },
-          {
-            key: "Access-Control-Allow-Methods",
-            value: "GET,DELETE,PATCH,POST,PUT,OPTIONS",
-          },
-          { key: "Access-Control-Allow-Headers", value: "*" },
-        ],
-      },
-    ];
-  },
+  /*
+   * The `headers` function for setting CORS headers has been removed.
+   * Since `rewrites` is used as a proxy, the browser only communicates with your Next.js app (same-origin).
+   * The Next.js server communicates with the backend, so CORS should be configured on the backend API (gender-healthcare.org) if it needs to be accessed from other origins.
+  */
 
   images: {
-    // Cải thiện cấu hình images để tránh lỗi 404
-    domains: [
-      "d3fdwgxfvcmuj8.cloudfront.net",
-      "d4vjsyqlv6u6j.cloudfront.net", 
-      "gender-healthcare.org",
-      "localhost",
-      // thêm các domain khác nếu cần
+    // Use `remotePatterns` instead of the deprecated `domains` property.
+    // This provides more control over allowed external image sources.
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "d3fdwgxfvcmuj8.cloudfront.net",
+        port: "",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "d4vjsyqlv6u6j.cloudfront.net",
+        port: "",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "gender-healthcare.org",
+        port: "",
+        pathname: "/**",
+      },
+      // Note: `localhost` was removed. For local images, place them in the `/public` directory.
     ],
-    // Thêm fallback cho images bị lỗi
+    
+    // Allows Next.js to optimize SVG images. Use with trusted sources only.
     dangerouslyAllowSVG: true,
+    
+    // Defines a Content Security Policy for images.
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    // Disable tối ưu hóa image nếu gặp vấn đề
-    unoptimized: false,
-    // Timeout cho việc load image
-    loader: 'default',
-    // Thêm error handling
+    
+    // The minimum time an optimized image will be cached, in seconds.
     minimumCacheTTL: 60,
   },
 };

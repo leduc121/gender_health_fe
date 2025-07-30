@@ -23,11 +23,6 @@ export default function BlogManagePage() {
     typeof user.role === "object" &&
     typeof user.role.name === "string"
   ) {
-  if (
-    user?.role &&
-    typeof user.role === "object" &&
-    typeof user.role.name === "string"
-  ) {
     roleName = user.role.name.toLowerCase();
   }
   const canCreate = ["admin", "manager", "consultant"].includes(roleName);
@@ -36,7 +31,6 @@ export default function BlogManagePage() {
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<any[]>([]);
   const [showImageModal, setShowImageModal] = useState<string | null>(null);
-  const [editBlog, setEditBlog] = useState<any | null>(null);
   const [editBlog, setEditBlog] = useState<any | null>(null);
   const [reasonModalOpen, setReasonModalOpen] = useState(false);
   const [selectedBlogReason, setSelectedBlogReason] = useState({
@@ -170,14 +164,12 @@ export default function BlogManagePage() {
     return pageNumbers;
   };
 
-  // Helper to get author full name
-  function getAuthorName(authorId: string) {
+  // FIX: Changed to a function expression (const/arrow function)
+  const getAuthorName = (authorId: string) => {
     const user = users.find((u) => u.id === authorId);
     if (!user) return authorId;
     return (user.firstName || "") + (user.lastName ? " " + user.lastName : "");
-    if (!user) return authorId;
-    return (user.firstName || "") + (user.lastName ? " " + user.lastName : "");
-  }
+  };
 
   const handleOpenReasonModal = (blog: Blog) => {
     setSelectedBlogReason({
@@ -389,7 +381,6 @@ export default function BlogManagePage() {
                               onClick={() => setShowImageModal(null)}
                             >
                               &times;
-                              &times;
                             </button>
                             <h3 className="text-lg font-bold mb-4">
                               Cập nhật ảnh cho blog
@@ -460,4 +451,3 @@ export default function BlogManagePage() {
     </div>
   );
 }
-

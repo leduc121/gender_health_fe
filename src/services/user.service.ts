@@ -10,7 +10,7 @@ export interface User {
   email: string;
   phone?: string;
   address?: string;
-  gender?: string;
+  gender?: "M" | "F";
   dateOfBirth?: string;
   profilePicture?: string;
   role: Role;
@@ -19,6 +19,7 @@ export interface User {
   updatedAt: string;
   roleId?: string; // Add roleId here for convenience in forms
   consultantProfile?: ConsultantProfile; // Add consultantProfile
+  healthDataConsent: boolean;
 }
 
 export interface Role {
