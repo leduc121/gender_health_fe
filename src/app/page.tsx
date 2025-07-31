@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { APIService, Service } from "@/services/service.service";
 import { useToast } from "@/components/ui/use-toast";
-import { formatCurrency } from "@/lib/utils";
 
 async function getBlogs() {
   try {
@@ -175,7 +174,7 @@ export default function HomePage() {
                 <span className="inline-block font-semibold text-lg text-green-700">
                   Giá:{" "}
                   <span className="text-2xl text-green-800">
-                     {service.price != null ? formatCurrency(service.price) : "Liên hệ"}
+                    {service.price?.toLocaleString() || "Liên hệ"} VNĐ
                   </span>
                 </span>
                  <span className="inline-block text-sm text-blue-700 font-medium">

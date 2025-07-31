@@ -3,16 +3,12 @@ import { apiClient } from "./api";
 export interface Category {
   id: string;
   name: string;
-  slug: string;
   description?: string;
   type?: string;
   isActive?: boolean;
   parentId?: string;
   children?: Category[];
   parent?: Category | null;
-  createdAt: string; 
-  updatedAt: string; 
-  deletedAt: string | null;
 }
 
 export const CategoryService = {
