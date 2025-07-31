@@ -34,7 +34,7 @@ export const MenstrualCycleHistory: React.FC<MenstrualCycleHistoryProps> = () =>
     queryFn: MenstrualService.getAllCycles,
   });
 
-  const cycles = cyclesData?.data || [];
+  const cycles = cyclesData as any || [];
 
   const handleBackToList = () => {
     setSelectedCycleId(null);
@@ -65,7 +65,7 @@ export const MenstrualCycleHistory: React.FC<MenstrualCycleHistoryProps> = () =>
         <CardTitle>Lịch sử chu kỳ</CardTitle>
       </CardHeader>
       <CardContent>
-        {cycles.length === 0 ? (
+        {cycles?.length === 0 ? (
           <p>Không có dữ liệu lịch sử chu kỳ nào.</p>
         ) : (
           <Table>

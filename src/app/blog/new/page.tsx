@@ -99,7 +99,7 @@ export default function CreateBlogPage() {
         )
     );
 
-    const blogStatus = isManagerOrAdmin ? "published" : "pending_review"; // Set status based on role
+    const blogStatus = isManagerOrAdmin ? "pending_review" : "pending_review"; // Set status based on role
 
     const payload: CreateBlogData = {
       title,
@@ -107,8 +107,8 @@ export default function CreateBlogPage() {
       authorId: user.id,
       tags: tagsArray,
       categoryId: selectedCategory,
-      status: blogStatus, // Use the determined status
-      autoPublish: isManagerOrAdmin, // autoPublish is true only for Admin/Manager
+      status: "pending_review", // Use the determined status
+      autoPublish: false, // autoPublish is true only for Admin/Manager
       seoTitle: seoTitle || title, // Fallback to title if seoTitle is empty
       seoDescription: seoDescription,
       excerpt: excerpt,
