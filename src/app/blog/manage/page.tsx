@@ -164,12 +164,11 @@ export default function BlogManagePage() {
     return pageNumbers;
   };
 
-  // FIX: Changed to a function expression (const/arrow function)
-  const getAuthorName = (authorId: string) => {
+  function getAuthorName(authorId: string) {
     const user = users.find((u) => u.id === authorId);
     if (!user) return authorId;
     return (user.firstName || "") + (user.lastName ? " " + user.lastName : "");
-  };
+  }
 
   const handleOpenReasonModal = (blog: Blog) => {
     setSelectedBlogReason({

@@ -13,7 +13,7 @@ export interface Blog {
   id: string;
   title: string;
   content: string;
-  status: string;
+  status: "draft" | "pending_review" | "needs_revision" | "rejected" | "approved" | "published" | "archived";
   categoryId: string;
   tags: (string | { id: string; name: string; slug?: string })[];
   authorId: string;

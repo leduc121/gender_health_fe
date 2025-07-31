@@ -10,16 +10,16 @@ export interface User {
   email: string;
   phone?: string;
   address?: string;
-  gender?: "M" | "F";
+  gender?: string;
   dateOfBirth?: string;
   profilePicture?: string;
   role: Role;
   isActive: boolean;
+  healthDataConsent?: boolean;
   createdAt: string;
   updatedAt: string;
   roleId?: string; // Add roleId here for convenience in forms
   consultantProfile?: ConsultantProfile; // Add consultantProfile
-  healthDataConsent: boolean;
 }
 
 export interface Role {

@@ -12,25 +12,22 @@ import AuthDialog from "@/components/AuthDialog";
 export default function ServiceDetailPage() {
   const { isAuthenticated } = useAuth();
   const params = useParams();
-  const id = params.id; // id can be a string or array of strings, or undefined
-
+  const id = params.id; // id có thể là string hoặc undefined
   const [service, setService] = useState<Service | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const serviceId = Array.isArray(id) ? id[0] : id;
-
-    // Only fetch if serviceId is a non-empty string
-    if (typeof serviceId === 'string' && serviceId) {
+    // Chỉ thực hiện fetch nếu id là một chuỗi không rỗng
+    if (typeof id === 'string' && id) {
       setLoading(true);
-      APIService.getById(serviceId)
-        .then((data: Service) => {
+      APIService.getById(id)
+        .then((data: Service) => { // Changed type to Service directly
           console.log("[ServiceDetailPage] Fetched service data:", data);
           setService(data);
           setError(null);
         })
-        .catch((err: any) => {
+        .catch((err: any) => { // Added type any for error
           console.error("[ServiceDetailPage] Error fetching service:", err);
           setError("Không thể tải chi tiết dịch vụ. Vui lòng thử lại.");
           setService(null);
@@ -39,9 +36,11 @@ export default function ServiceDetailPage() {
           setLoading(false);
         });
     } else {
-      // Handle cases where the ID is invalid or not present
+      // Nếu id không phải là string hoặc rỗng, có thể đang trong quá trình tải hoặc lỗi
       setLoading(false);
-      setError("ID dịch vụ không hợp lệ.");
+      if (!id) {
+        setError("ID dịch vụ không hợp lệ.");
+      }
     }
   }, [id]);
 
@@ -115,7 +114,7 @@ export default function ServiceDetailPage() {
               <div className="flex items-center gap-3">
                 <span className="font-bold text-primary">Giá:</span>
                 <span className="text-2xl font-bold text-green-700">
-                  {service.price !== null && !isNaN(Number(service.price)) ? `${Number(service.price).toLocaleString()} VNĐ` : "N/A"}
+                  {service.price !== null && !isNaN(Number(service.price)) ? Number(service.price).toLocaleString() : "N/A"} VNĐ
                 </span>
               </div>
               <div className="flex items-center gap-3">

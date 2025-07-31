@@ -20,6 +20,7 @@ export const API_ENDPOINTS = {
     RESET_PASSWORD: "/auth/reset-password",
     REFRESH_TOKEN: "/auth/refresh-token",
     ME: "/auth/me",
+    GOOGLE: "/auth/google/authenticate",
   },
 
   // Users

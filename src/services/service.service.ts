@@ -1,15 +1,12 @@
-
-import { Category } from '@/services/category.service';
 import { apiClient } from "./api"; // Changed to apiClient
 import { API_ENDPOINTS } from "@/config/api";
 import { UploadImageResponse, CreateServiceImageDto, Image } from "@/types/api";
+import { Category } from "./category.service";
 
 export interface Service {
   id: string;
   name: string;
   description: string;
-  htmlDescription?: string;
-  price: number | null;
   htmlDescription?: string;
   price: number | null;
   duration: number;
@@ -89,7 +86,6 @@ export const APIService = {
       const response = await apiClient.get<Service>(API_ENDPOINTS.SERVICES.BY_ID(id));
       return response;
     } catch (error) {
-      console.error("[APIService] Error in getById:", error);
       console.error("[APIService] Error in getById:", error);
       throw error;
     }

@@ -1,3 +1,4 @@
+import { apiClient } from "./api";
 import { API_ENDPOINTS } from "@/config/api";
 import { Appointment, PaginationResponse } from "@/types/api.d";
 
@@ -53,23 +54,11 @@ export const AppointmentService = {
       console.log("[AppointmentService] Raw API Response for current user appointments:", response);
       return response; // The apiClient already returns the expected structure
     } catch (error: any) {
-      console.error(
-        "[AppointmentService] Error fetching user appointments:",
-        error
-      );
+      console.error("[AppointmentService] Error fetching user appointments:", error);
       if (error.response) {
-        console.error(
-          "[AppointmentService] Error response data:",
-          error.response.data
-        );
-        console.error(
-          "[AppointmentService] Error response status:",
-          error.response.status
-        );
-        console.error(
-          "[AppointmentService] Error response headers:",
-          error.response.headers
-        );
+        console.error("[AppointmentService] Error response data:", error.response.data);
+        console.error("[AppointmentService] Error response status:", error.response.status);
+        console.error("[AppointmentService] Error response headers:", error.response.headers);
       } else if (error.request) {
         console.error("[AppointmentService] Error request:", error.request);
       } else {
@@ -104,9 +93,7 @@ export const AppointmentService = {
   },
 
   // Tạo appointment mới
-  createAppointment: async (
-    data: CreateAppointmentRequest
-  ): Promise<Appointment> => {
+  createAppointment: async (data: CreateAppointmentRequest): Promise<Appointment> => {
     try {
       console.log("[AppointmentService] Creating appointment with data:", data);
       const accessToken = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
@@ -122,18 +109,9 @@ export const AppointmentService = {
     } catch (error: any) {
       console.error("[AppointmentService] Error creating appointment:", error);
       if (error.response) {
-        console.error(
-          "[AppointmentService] Error response data:",
-          error.response.data
-        );
-        console.error(
-          "[AppointmentService] Error response status:",
-          error.response.status
-        );
-        console.error(
-          "[AppointmentService] Error response headers:",
-          error.response.headers
-        );
+        console.error("[AppointmentService] Error response data:", error.response.data);
+        console.error("[AppointmentService] Error response status:", error.response.status);
+        console.error("[AppointmentService] Error response headers:", error.response.headers);
       } else if (error.request) {
         console.error("[AppointmentService] Error request:", error.request);
       } else {
@@ -179,10 +157,7 @@ export const AppointmentService = {
       console.log("[AppointmentService] Cancelling appointment:", id, data);
       await apiClient.patch<void>(API_ENDPOINTS.APPOINTMENTS.CANCEL(id), data);
     } catch (error) {
-      console.error(
-        "[AppointmentService] Error cancelling appointment:",
-        error
-      );
+      console.error("[AppointmentService] Error cancelling appointment:", error);
       throw error;
     }
   },

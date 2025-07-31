@@ -16,7 +16,7 @@ export default function BlogReviewModal({
   onClose,
   onReviewSuccess,
 }: BlogReviewModalProps) {
-  const [reviewStatus, setReviewStatus] = useState<"approved" | "rejected" | "needs_revision">("approved");
+  const [reviewStatus, setReviewStatus] = useState<"approved" | "needs_revision" | "rejected">("approved");
   const [reason, setReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
@@ -97,7 +97,7 @@ export default function BlogReviewModal({
             className="w-full border rounded px-2 py-1 mt-1"
             value={reviewStatus}
             onChange={(e) => {
-              setReviewStatus(e.target.value as any);
+              setReviewStatus(e.target.value as "approved" | "needs_revision" | "rejected");
               setReason("");
             }}
           >

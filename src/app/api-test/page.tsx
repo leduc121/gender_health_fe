@@ -5,34 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-// --- Type Definitions for State ---
-
-// Describes the structure for a single API test result
-interface ApiResult {
-  status?: number;
-  statusText?: string;
-  data?: any; // Kept as 'any' since response data structures will vary
-  headers?: Record<string, string>;
-  error?: string;
-}
-
-// Describes the shape of the entire results state object
-interface ResultsState {
-  [endpoint: string]: ApiResult;
-}
-
+import { Textarea } from "@/components/ui/textarea";
 
 export default function ApiTestPage() {
-  // State is now strongly typed using the interfaces defined above
-  const [results, setResults] = useState<ResultsState>({});
+  const [results, setResults] = useState<any>({});
   const [loading, setLoading] = useState<string | null>(null);
 
   const testEndpoint = async (endpoint: string, method: string = "GET", body?: any) => {
     setLoading(endpoint);
-    // This variable will hold the result for the specific endpoint being tested
-    let resultPayload: ApiResult = {};
-
     try {
       const url = `https://gender-healthcare.org${endpoint}`;
       console.log(`Testing ${method} ${url}`);
@@ -51,22 +31,23 @@ export default function ApiTestPage() {
       const response = await fetch(url, options);
       const data = await response.json();
       
-      resultPayload = {
-        status: response.status,
-        statusText: response.statusText,
-        data: data,
-        headers: Object.fromEntries(response.headers.entries()),
-      };
-    } catch (error) {
-      resultPayload = {
-        error: error instanceof Error ? error.message : "Unknown error"
-      };
-    } finally {
-      // Update the state. The 'prev' parameter is now correctly typed.
-      setResults(prev => ({
+      setResults((prev: any) => ({
         ...prev,
-        [endpoint]: resultPayload
+        [endpoint]: {
+          status: response.status,
+          statusText: response.statusText,
+          data: data,
+          headers: Object.fromEntries(response.headers.entries()),
+        }
       }));
+    } catch (error) {
+      setResults((prev: any) => ({
+        ...prev,
+        [endpoint]: {
+          error: error instanceof Error ? error.message : "Unknown error"
+        }
+      }));
+    } finally {
       setLoading(null);
     }
   };
