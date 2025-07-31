@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import tokenMethod from "@/utils/token";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function PackagePaymentPage() {
   const router = useRouter();
@@ -14,9 +14,7 @@ export default function PackagePaymentPage() {
 
   useEffect(() => {
     const token =
-      typeof window !== "undefined"
-        ? localStorage.getItem("accessToken")
-        : null;
+      typeof window !== "undefined" ? tokenMethod.get()?.accessToken : null;
     if (!id || !token) {
       setError("Thiếu thông tin gói dịch vụ hoặc chưa đăng nhập.");
       setLoading(false);

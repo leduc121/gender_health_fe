@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Card,
@@ -9,21 +11,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Bell, Calendar as CalendarIcon, Info } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
+import { Calendar as CalendarIcon, Info } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface CycleDay {
   date: Date;
@@ -63,7 +55,7 @@ const ReproductiveHealthTracker = () => {
     const fetchCycleData = async () => {
       try {
         const response = await fetch(
-          "https://gender-healthcare.org/api/menstrual-cycles"
+          "https://gender-healthcare.org/menstrual-cycles"
         );
         if (!response.ok) throw new Error("Failed to fetch cycle data");
         const data = await response.json();
@@ -86,7 +78,7 @@ const ReproductiveHealthTracker = () => {
     const fetchReminders = async () => {
       try {
         const response = await fetch(
-          "https://gender-healthcare.org/api/contraceptive-reminders"
+          "https://gender-healthcare.org/contraceptive-reminders"
         );
         if (!response.ok) throw new Error("Failed to fetch reminders");
         const data = await response.json();
@@ -140,7 +132,7 @@ const ReproductiveHealthTracker = () => {
 
     try {
       const response = await fetch(
-        `https://gender-healthcare.org/api/menstrual-cycles/${selectedDay.date.toISOString()}`,
+        `https://gender-healthcare.org/menstrual-cycles/${selectedDay.date.toISOString()}`,
         {
           method: "PATCH",
           headers: {
@@ -182,7 +174,7 @@ const ReproductiveHealthTracker = () => {
     setIsLoading(true);
     try {
       const response = await fetch(
-        "https://gender-healthcare.org/api/contraceptive-reminders",
+        "https://gender-healthcare.org/contraceptive-reminders",
         {
           method: "POST",
           headers: {

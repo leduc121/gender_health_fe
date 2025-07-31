@@ -19,6 +19,7 @@
     "downlevelIteration": true,
     "jsx": "preserve",
     "incremental": true,
+     "baseUrl": ".",
     "allowImportingTsExtensions": true,
     "plugins": [
       {

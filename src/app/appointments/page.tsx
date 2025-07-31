@@ -1,9 +1,17 @@
 "use client";
 
-import { useState, useEffect, useContext } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -13,19 +21,15 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { Badge } from "@/components/ui/badge";
-import Image from "next/image";
-import { Checkbox } from "@/components/ui/checkbox";
 import { AppointmentService } from "@/services/appointment.service";
-import { STITestingService } from "@/services/sti-testing.service"; // Import STITestingService
-import { APIService, Service } from "@/services/service.service"; // Import APIService and Service interface
-import { useSearchParams, useRouter } from "next/navigation";
+import { APIService, Service } from "@/services/service.service";
+import { STITestingService } from "@/services/sti-testing.service";
+import tokenMethod from "@/utils/token";
+import { CheckCircle, Loader2 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
-// import { AuthContext } from "@/contexts/AuthContext"; // Uncomment if you have AuthContext
-
-// Using Service type directly from service.service.ts
-// The previous PackageService type and related imports are no longer needed.
 
 // API: Get available slots (for consultant-required services)
 async function getAvailableSlots({
@@ -65,13 +69,9 @@ async function getAvailableSlots({
   return res.json();
 }
 
-// API: Book appointment (using AppointmentService for consistency)
-// Removed the direct fetch function and will use AppointmentService.createAppointment directly within handleBookAppointment
-
 export default function AppointmentsPage() {
-  // const { user } = useContext(AuthContext); // Uncomment if you have AuthContext
   const [step, setStep] = useState(1);
-  const [services, setServices] = useState<Service[]>([]); // Changed from PackageService[] to Service[]
+  const [services, setServices] = useState<Service[]>([]);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [loadingServices, setLoadingServices] = useState<boolean>(true);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -82,21 +82,27 @@ export default function AppointmentsPage() {
   const [notes, setNotes] = useState("");
   const { toast } = useToast();
   const searchParams = useSearchParams();
-  const [booking, setBooking] = useState<{
-    success: boolean;
-    message: string;
-  } | null>(null);
   const router = useRouter();
 
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+  const [isBookingLoading, setIsBookingLoading] = useState(false);
+  const [bookedAppointmentId, setBookedAppointmentId] = useState<string | null>(
+    null
+  );
+  const [bookedChatId, setBookedChatId] = useState<string | null>(null);
+
   useEffect(() => {
-    console.log("[AppointmentsPage] Fetching services from APIService.getAll()");
     setLoadingServices(true);
     APIService.getAll()
       .then(({ data }) => {
         if (Array.isArray(data)) {
           setServices(data);
         } else {
-          console.error("[AppointmentsPage] Expected an array from APIService.getAll(), but received:", data);
+          console.error(
+            "[AppointmentsPage] Expected an array from APIService.getAll(), but received:",
+            data
+          );
           setServices([]);
         }
       })
@@ -111,47 +117,41 @@ export default function AppointmentsPage() {
 
   useEffect(() => {
     if (!loadingServices && services.length > 0) {
-    
-      const serviceIdFromUrl = searchParams.get("serviceId"); // Use "serviceId" as parameter name
+      const serviceIdFromUrl = searchParams.get("serviceId");
       if (serviceIdFromUrl) {
-        // Find Service directly by its ID
         const foundService = services.find((s) => s.id === serviceIdFromUrl);
         if (foundService) {
-          // Add service ID to selectedServiceIds
           setSelectedServiceIds((prev) => {
             if (!prev.includes(foundService.id)) {
               return [...prev, foundService.id];
             }
             return prev;
           });
-          setStep(2); // Automatically advance to step 2
+          setStep(2);
         } else {
           toast({
             title: "Dịch vụ không khả dụng",
-            description: "Dịch vụ bạn chọn không thể tải hoặc không còn khả dụng. Vui lòng chọn dịch vụ khác.",
+            description:
+              "Dịch vụ bạn chọn không thể tải hoặc không còn khả dụng. Vui lòng chọn dịch vụ khác.",
             variant: "destructive",
           });
         }
       }
     }
   }, [loadingServices, services, searchParams, toast]);
-  
 
-  const selectedServices = services
-    .filter((s) => selectedServiceIds.includes(s.id)); // No longer need to map s.service
-
+  const selectedServices = services.filter((s) =>
+    selectedServiceIds.includes(s.id)
+  );
 
   const needsConsultant = selectedServices.some((s) => s.requiresConsultant);
 
-  // Lấy slot nếu cần tư vấn viên
   useEffect(() => {
     if (needsConsultant && selectedServiceIds.length && selectedDate) {
       setLoadingSlots(true);
       const startDate = selectedDate.toISOString().slice(0, 10);
       const token =
-        typeof window !== "undefined"
-          ? localStorage.getItem("accessToken")
-          : null;
+        typeof window !== "undefined" ? tokenMethod.get()?.accessToken : null;
       if (!token) {
         setLoadingSlots(false);
         toast({
@@ -161,7 +161,6 @@ export default function AppointmentsPage() {
         });
         return;
       }
-      // mappedServiceIds directly uses selectedServiceIds since they are already service IDs
       const mappedServiceIds = selectedServiceIds;
 
       getAvailableSlots({
@@ -189,17 +188,15 @@ export default function AppointmentsPage() {
     }
   }, [needsConsultant, selectedServiceIds, selectedDate, services.length]);
 
-  // Reset selectedSlot khi đổi ngày hoặc dịch vụ
   useEffect(() => {
     setSelectedSlot(null);
   }, [selectedDate, selectedServiceIds]);
 
-  // Reset selectedTime khi đổi ngày hoặc dịch vụ
   useEffect(() => {
     setSelectedTime("");
   }, [selectedDate, selectedServiceIds]);
 
-  const handleBookAppointment = async () => {
+  const handleBookingSubmit = () => {
     if (!selectedDate || selectedServiceIds.length === 0) {
       toast({
         title: "Lỗi",
@@ -224,32 +221,38 @@ export default function AppointmentsPage() {
       });
       return;
     }
+    setIsConfirmDialogOpen(true);
+  };
+
+  const handleConfirmBooking = async () => {
+    setIsBookingLoading(true);
     const token =
-      typeof window !== "undefined"
-        ? localStorage.getItem("accessToken")
-        : null;
+      typeof window !== "undefined" ? tokenMethod.get()?.accessToken : null;
     if (!token) {
       toast({
         title: "Lỗi xác thực",
         description: "Bạn cần đăng nhập để đặt lịch.",
         variant: "destructive",
       });
+      setIsBookingLoading(false);
       return;
     }
 
-
     try {
-      const firstSelectedService = services.find((s) => selectedServiceIds.includes(s.id));
-      const isStiService = firstSelectedService?.type === 'STI_TEST'; // Giả định có trường `type` để phân biệt dịch vụ STI
+      const firstSelectedService = services.find((s) =>
+        selectedServiceIds.includes(s.id)
+      );
+      const isStiService = firstSelectedService?.type === "STI_TEST";
 
+      let response;
       if (isStiService) {
-        // Handle STI Appointment
         if (!selectedDate || !selectedTime) {
           toast({
             title: "Lỗi",
             description: "Vui lòng chọn ngày và giờ lấy mẫu.",
             variant: "destructive",
           });
+          setIsBookingLoading(false);
           return;
         }
 
@@ -259,14 +262,12 @@ export default function AppointmentsPage() {
           selectedDate.getDate(),
         ];
         const [hour, minute] = selectedTime.split(":").map(Number);
-        
-        // Construct date in local timezone and format it to ISO 8601 string without timezone offset
-        // This ensures the backend receives the exact local time components
+
         const localDate = new Date(year, month, day, hour, minute, 0, 0);
-        const pad = (num: number) => num < 10 ? '0' + num : num;
+        const pad = (num: number) => (num < 10 ? "0" + num : num);
         const sampleCollectionDate = `${localDate.getFullYear()}-${pad(localDate.getMonth() + 1)}-${pad(localDate.getDate())}T${pad(localDate.getHours())}:${pad(localDate.getMinutes())}:00`;
-        
-        const sampleCollectionLocation: "office" = "office"; // STI tests are typically at an office
+
+        const sampleCollectionLocation: "office" = "office";
 
         const stiAppointmentData = {
           stiServiceId: firstSelectedService.id,
@@ -276,13 +277,16 @@ export default function AppointmentsPage() {
           notes,
         };
 
-        await STITestingService.createStiAppointment(stiAppointmentData);
-
+        response = (await STITestingService.createStiAppointment(
+          stiAppointmentData
+        )) as any;
+        console.log("STI Appointment Response:", response);
+        setBookedAppointmentId(response.id);
+        setBookedChatId(response.chatRoomId ?? null);
       } else {
-        // Handle General Appointment
         let appointmentDate = "";
         let consultantId: string | undefined = undefined;
-        const appointmentLocation: "online" = "online"; // Default to online as per user feedback
+        const appointmentLocation: "online" = "online";
 
         if (needsConsultant) {
           appointmentDate = selectedSlot.dateTime;
@@ -294,6 +298,7 @@ export default function AppointmentsPage() {
               description: "Vui lòng chọn ngày và giờ.",
               variant: "destructive",
             });
+            setIsBookingLoading(false);
             return;
           }
           const [year, month, day] = [
@@ -303,9 +308,8 @@ export default function AppointmentsPage() {
           ];
           const [hour, minute] = selectedTime.split(":").map(Number);
 
-          // Construct date in local timezone and format it to ISO 8601 string without timezone offset
           const localDate = new Date(year, month, day, hour, minute, 0, 0);
-          const pad = (num: number) => num < 10 ? '0' + num : num;
+          const pad = (num: number) => (num < 10 ? "0" + num : num);
           appointmentDate = `${localDate.getFullYear()}-${pad(localDate.getMonth() + 1)}-${pad(localDate.getDate())}T${pad(localDate.getHours())}:${pad(localDate.getMinutes())}:00`;
         }
 
@@ -317,68 +321,83 @@ export default function AppointmentsPage() {
           notes,
         };
 
-        await AppointmentService.createAppointment(generalAppointmentData);
+        response = (await AppointmentService.createAppointment(
+          generalAppointmentData
+        )) as any;
+        console.log("General Appointment Response:", response);
+        setBookedAppointmentId(response.id);
+        setBookedChatId(response.chatRoomId ?? null);
       }
 
-      setBooking({ success: true, message: "Đặt lịch thành công!" });
+      setIsConfirmDialogOpen(false);
+      setIsSuccessDialogOpen(true);
       toast({
         title: "Thành công",
         description: "Lịch hẹn của bạn đã được đặt thành công.",
       });
-      setStep(5); // Changed to step 5 for success message
+      setStep(5);
       setSelectedServiceIds([]);
       setSelectedDate(undefined);
       setSelectedTime("");
       setSelectedSlot(null);
       setNotes("");
-      setTimeout(() => {
-        router.push("/profile/appointments");
-      }, 1500);
     } catch (error: any) {
       console.error("Error booking appointment:", error);
-      const errorMessage = error?.response?.data?.message || error?.message || "Không thể đặt lịch. Vui lòng thử lại.";
-      setBooking({ success: false, message: errorMessage });
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Không thể đặt lịch. Vui lòng thử lại.";
       toast({
         title: "Lỗi",
         description: errorMessage,
         variant: "destructive",
       });
+      setIsBookingLoading(false);
     }
   };
-  
-  // Refactored handler for service selection
-  const handleServiceSelect = (item: Service) => {
-    const isStiServiceType = item.type === 'STI_TEST';
-    const hasStiServiceSelected = selectedServices.some(s => s.type === 'STI_TEST');
 
-    if (isStiServiceType) {
-      // If an STI service is clicked, it becomes the only selected service, or deselects if already selected.
-      setSelectedServiceIds(prev =>
-        prev.includes(item.id) ? [] : [item.id]
-      );
-    } else if (hasStiServiceSelected) {
-      // If an STI service is already selected, prevent selecting any other type of service.
-      toast({
-        title: "Lưu ý",
-        description: "Bạn không thể chọn dịch vụ khác khi đã chọn dịch vụ xét nghiệm STI.",
-        variant: "default",
-      });
+  const resetBooking = () => {
+    setStep(1);
+    setSelectedServiceIds([]);
+    setSelectedDate(undefined);
+    setSelectedTime("");
+    setSelectedSlot(null);
+    setNotes("");
+    setIsSuccessDialogOpen(false);
+    setBookedAppointmentId(null);
+    setBookedChatId(null);
+  };
+
+  const handleGoToPayment = () => {
+    console.log(
+      "Attempting to go to payment. bookedAppointmentId:",
+      bookedAppointmentId
+    );
+    if (bookedAppointmentId) {
+      router.push(`/appointments/payment?appointmentId=${bookedAppointmentId}`);
     } else {
-      // For general services, allow multiple selections.
-      setSelectedServiceIds((prev) =>
-        prev.includes(item.id)
-          ? prev.filter((id) => id !== item.id)
-          : [...prev, item.id]
-      );
+      toast({
+        title: "Lỗi",
+        description: "Không tìm thấy ID cuộc hẹn để thanh toán.",
+        variant: "destructive",
+      });
     }
   };
 
+  const handleGoToChat = () => {
+    if (bookedChatId) {
+      router.push(`/chat/${bookedChatId}`);
+    } else {
+      toast({
+        title: "Lỗi",
+        description: "Không tìm thấy ID cuộc trò chuyện.",
+        variant: "destructive",
+      });
+    }
+  };
 
-  // Phân quyền: chỉ Customer mới đặt được lịch (giả sử user?.role === 'customer')
-  // const canBook = user?.role === 'customer';
-  const canBook = true; // TODO: thay bằng kiểm tra role thực tế
+  const canBook = true;
 
-  // Tóm tắt thông tin đã chọn
   const summary = (
     <div className="sticky top-8 bg-white rounded-xl shadow-lg p-6 border w-full max-w-md mx-auto mb-8">
       <h3 className="text-xl font-bold mb-4 text-primary">Tóm tắt đặt lịch</h3>
@@ -393,7 +412,7 @@ export default function AppointmentsPage() {
                   <span className="ml-2 text-green-700">
                     ({service.price.toLocaleString()} VNĐ)
                   </span>
-                  )}
+                )}
                 {service.requiresConsultant && (
                   <span className="ml-2 text-xs text-blue-600">
                     [Cần tư vấn viên]
@@ -424,8 +443,7 @@ export default function AppointmentsPage() {
           </div>
         )}
         <div>
-          <span className="font-semibold">Nơi chốn:</span>{" "}
-          Online
+          <span className="font-semibold">Nơi chốn:</span> Online
         </div>
         {notes && (
           <div>
@@ -438,7 +456,10 @@ export default function AppointmentsPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-10">
-      <h1 className="text-4xl md:text-5xl font-extrabold text-primary drop-shadow-sm tracking-tight mb-10" aria-label="Đặt lịch hẹn">
+      <h1
+        className="text-4xl md:text-5xl font-extrabold text-primary drop-shadow-sm tracking-tight mb-10"
+        aria-label="Đặt lịch hẹn"
+      >
         <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
           Đặt lịch hẹn
         </span>
@@ -453,20 +474,78 @@ export default function AppointmentsPage() {
               {/* Bước 1: Chọn dịch vụ */}
               {step === 1 && (
                 <div>
-                  <h2 className="text-xl font-bold mb-4" aria-label="Bước 1: Chọn dịch vụ">1. Chọn dịch vụ</h2>
+                  <h2
+                    className="text-xl font-bold mb-4"
+                    aria-label="Bước 1: Chọn dịch vụ"
+                  >
+                    1. Chọn dịch vụ
+                  </h2>
                   {loadingServices ? (
-                    <div className="text-center py-8" role="status" aria-live="polite">Đang tải dịch vụ...</div>
+                    <div
+                      className="text-center py-8"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      Đang tải dịch vụ...
+                    </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {services.map((item) => (
                         <div
                           key={item.id}
                           className={`rounded-xl border p-4 flex flex-col gap-2 shadow-sm transition cursor-pointer hover:border-primary ${selectedServiceIds.includes(item.id) ? "border-primary bg-primary/5" : ""}`}
-                          onClick={() => handleServiceSelect(item)}
+                          onClick={() => {
+                            const isStiServiceType = item.type === "STI_TEST";
+                            const hasStiServiceSelected = selectedServices.some(
+                              (s) => s.type === "STI_TEST"
+                            );
+
+                            if (isStiServiceType) {
+                              setSelectedServiceIds((prev) =>
+                                prev.includes(item.id) ? [] : [item.id]
+                              );
+                            } else if (hasStiServiceSelected) {
+                              toast({
+                                title: "Lưu ý",
+                                description:
+                                  "Bạn không thể chọn dịch vụ khác khi đã chọn dịch vụ xét nghiệm STI.",
+                                variant: "default",
+                              });
+                            } else {
+                              setSelectedServiceIds((prev) =>
+                                prev.includes(item.id)
+                                  ? prev.filter((id) => id !== item.id)
+                                  : [...prev, item.id]
+                              );
+                            }
+                          }}
                           tabIndex={0}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              handleServiceSelect(item);
+                            if (e.key === "Enter" || e.key === " ") {
+                              const isStiServiceType = item.type === "STI_TEST";
+                              const hasStiServiceSelected =
+                                selectedServices.some(
+                                  (s) => s.type === "STI_TEST"
+                                );
+
+                              if (isStiServiceType) {
+                                setSelectedServiceIds((prev) =>
+                                  prev.includes(item.id) ? [] : [item.id]
+                                );
+                              } else if (hasStiServiceSelected) {
+                                toast({
+                                  title: "Lưu ý",
+                                  description:
+                                    "Bạn không thể chọn dịch vụ khác khi đã chọn dịch vụ xét nghiệm STI.",
+                                  variant: "default",
+                                });
+                              } else {
+                                setSelectedServiceIds((prev) =>
+                                  prev.includes(item.id)
+                                    ? prev.filter((id) => id !== item.id)
+                                    : [...prev, item.id]
+                                );
+                              }
                             }
                           }}
                           role="checkbox"
@@ -476,7 +555,7 @@ export default function AppointmentsPage() {
                           <div className="flex items-center gap-2">
                             <Checkbox
                               checked={selectedServiceIds.includes(item.id)}
-                              aria-hidden="true" // Checkbox is visually present, but its state is controlled by the parent div's click/keydown
+                              aria-hidden="true"
                             />
                             <span className="font-semibold text-lg text-primary">
                               {item.name}
@@ -520,7 +599,12 @@ export default function AppointmentsPage() {
               {/* Bước 2: Chọn ngày */}
               {step === 2 && (
                 <div>
-                  <h2 className="text-xl font-bold mb-4" aria-label="Bước 2: Chọn ngày">2. Chọn ngày</h2>
+                  <h2
+                    className="text-xl font-bold mb-4"
+                    aria-label="Bước 2: Chọn ngày"
+                  >
+                    2. Chọn ngày
+                  </h2>
                   <div className="flex flex-col md:flex-row gap-8">
                     <div>
                       <DayPicker
@@ -606,95 +690,134 @@ export default function AppointmentsPage() {
               {/* Bước 3: Chọn giờ & tư vấn viên */}
               {step === 3 && (
                 <div>
-                  <h2 className="text-xl font-bold mb-4" aria-label="Bước 3: Chọn khung giờ và tư vấn viên">
+                  <h2
+                    className="text-xl font-bold mb-4"
+                    aria-label="Bước 3: Chọn khung giờ và tư vấn viên"
+                  >
                     3. Chọn khung giờ & tư vấn viên
                   </h2>
                   {needsConsultant ? (
                     <div>
                       {loadingSlots ? (
-                        <div className="text-center py-8" role="status" aria-live="polite">Đang tải slot...</div>
+                        <div
+                          className="text-center py-8"
+                          role="status"
+                          aria-live="polite"
+                        >
+                          Đang tải slot...
+                        </div>
                       ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {(() => {
                             if (!selectedDate) return null;
 
-                            const filteredSlots = availableSlots.filter((slot) => {
-                              const slotDateLocal = new Date(slot.dateTime).toLocaleDateString();
-                              const selectedDateLocal = selectedDate.toLocaleDateString();
-                              return slotDateLocal === selectedDateLocal;
-                            });
+                            const filteredSlots = availableSlots.filter(
+                              (slot) => {
+                                const slotDateLocal = new Date(
+                                  slot.dateTime
+                                ).toLocaleDateString();
+                                const selectedDateLocal =
+                                  selectedDate.toLocaleDateString();
+                                return slotDateLocal === selectedDateLocal;
+                              }
+                            );
 
                             const formatTimeKey = (date: Date): string => {
-                              const hour = date.getHours().toString().padStart(2, '0');
-                              const minute = date.getMinutes().toString().padStart(2, '0');
+                              const hour = date
+                                .getHours()
+                                .toString()
+                                .padStart(2, "0");
+                              const minute = date
+                                .getMinutes()
+                                .toString()
+                                .padStart(2, "0");
                               return `${hour}:${minute}`;
                             };
 
-                            const groupedSlots = filteredSlots.reduce((acc: any, slot) => {
-                              const dateObj = new Date(slot.dateTime);
-                              const normalizedDate = new Date(
-                                dateObj.getFullYear(),
-                                dateObj.getMonth(),
-                                dateObj.getDate(),
-                                dateObj.getHours(),
-                                dateObj.getMinutes()
-                              );
-                              const timeKey = formatTimeKey(normalizedDate);
+                            const groupedSlots = filteredSlots.reduce(
+                              (acc: any, slot) => {
+                                const dateObj = new Date(slot.dateTime);
+                                const normalizedDate = new Date(
+                                  dateObj.getFullYear(),
+                                  dateObj.getMonth(),
+                                  dateObj.getDate(),
+                                  dateObj.getHours(),
+                                  dateObj.getMinutes()
+                                );
+                                const timeKey = formatTimeKey(normalizedDate);
 
-                              if (!acc[timeKey]) {
-                                acc[timeKey] = {
-                                  displayTime: timeKey,
-                                  totalRemainingSlots: 0,
-                                  originalSlots: [],
-                                };
-                              }
-                              acc[timeKey].totalRemainingSlots += slot.remainingSlots;
-                              acc[timeKey].originalSlots.push(slot);
-                              return acc;
-                            }, {});
+                                if (!acc[timeKey]) {
+                                  acc[timeKey] = {
+                                    displayTime: timeKey,
+                                    totalRemainingSlots: 0,
+                                    originalSlots: [],
+                                  };
+                                }
+                                acc[timeKey].totalRemainingSlots +=
+                                  slot.remainingSlots;
+                                acc[timeKey].originalSlots.push(slot);
+                                return acc;
+                              },
+                              {}
+                            );
 
-                            const sortedGroupedSlots = Object.values(groupedSlots).sort((a: any, b: any) => {
-                              const [aHour, aMinute] = a.displayTime.split(':').map(Number);
-                              const [bHour, bMinute] = b.displayTime.split(':').map(Number);
+                            const sortedGroupedSlots = Object.values(
+                              groupedSlots
+                            ).sort((a: any, b: any) => {
+                              const [aHour, aMinute] = a.displayTime
+                                .split(":")
+                                .map(Number);
+                              const [bHour, bMinute] = b.displayTime
+                                .split(":")
+                                .map(Number);
                               if (aHour !== bHour) return aHour - bHour;
                               return aMinute - bMinute;
                             });
 
-                            return sortedGroupedSlots.map((group: any) => {
-                               const isSlotSelected = selectedSlot && formatTimeKey(new Date(selectedSlot.dateTime)) === group.displayTime;
-                               return (
-                                <label
-                                  key={group.displayTime}
-                                  className={`flex items-center gap-4 p-4 border rounded-xl shadow-sm cursor-pointer transition hover:border-primary ${
-                                    isSlotSelected ? "border-primary bg-primary/5" : ""
-                                  }`}
-                                  tabIndex={0}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                      setSelectedSlot(group.originalSlots[0]);
-                                    }
-                                  }}
-                                  aria-label={`Chọn khung giờ ${group.displayTime} còn ${group.totalRemainingSlots} slot`}
-                                >
-                                  <input
-                                    type="radio"
-                                    name="slot"
-                                    checked={Boolean(isSlotSelected)}
-                                    onChange={() => setSelectedSlot(group.originalSlots[0])}
-                                    className="accent-primary w-5 h-5"
-                                    aria-hidden="true" // Radio button is visually present, but its state is controlled by the parent label's click/keydown
-                                  />
-                                  <div className="flex-1">
-                                    <div className="font-semibold text-lg text-primary">
-                                      {group.displayTime}
-                                    </div>
-                                    <div className="text-sm text-muted-foreground">
-                                      Còn {group.totalRemainingSlots} slot
-                                    </div>
+                            return sortedGroupedSlots.map((group: any) => (
+                              <label
+                                key={group.displayTime}
+                                className={`flex items-center gap-4 p-4 border rounded-xl shadow-sm cursor-pointer transition hover:border-primary ${
+                                  selectedSlot &&
+                                  formatTimeKey(
+                                    new Date(selectedSlot.dateTime)
+                                  ) === group.displayTime
+                                    ? "border-primary bg-primary/5"
+                                    : ""
+                                }`}
+                                tabIndex={0}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    setSelectedSlot(group.originalSlots[0]);
+                                  }
+                                }}
+                                aria-label={`Chọn khung giờ ${group.displayTime} còn ${group.totalRemainingSlots} slot`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="slot"
+                                  checked={Boolean(
+                                    selectedSlot &&
+                                      formatTimeKey(
+                                        new Date(selectedSlot.dateTime)
+                                      ) === group.displayTime
+                                  )}
+                                  onChange={() =>
+                                    setSelectedSlot(group.originalSlots[0])
+                                  }
+                                  className="accent-primary w-5 h-5"
+                                  aria-hidden="true"
+                                />
+                                <div className="flex-1">
+                                  <div className="font-semibold text-lg text-primary">
+                                    {group.displayTime}
                                   </div>
-                                </label>
-                              )
-                            });
+                                  <div className="text-sm text-muted-foreground">
+                                    Còn {group.totalRemainingSlots} slot
+                                  </div>
+                                </div>
+                              </label>
+                            ));
                           })()}
                         </div>
                       )}
@@ -720,12 +843,17 @@ export default function AppointmentsPage() {
                   ) : (
                     <div>
                       <div className="mb-4">
-                        <label className="font-medium" htmlFor="time-select">Chọn giờ</label>
+                        <label className="font-medium" htmlFor="time-select">
+                          Chọn giờ
+                        </label>
                         <Select
                           value={selectedTime}
                           onValueChange={setSelectedTime}
                         >
-                          <SelectTrigger id="time-select" aria-label="Chọn giờ hẹn">
+                          <SelectTrigger
+                            id="time-select"
+                            aria-label="Chọn giờ hẹn"
+                          >
                             <SelectValue placeholder="Chọn giờ" />
                           </SelectTrigger>
                           <SelectContent>
@@ -760,14 +888,20 @@ export default function AppointmentsPage() {
                   )}
                 </div>
               )}
+              {/* Bước 4: Xác nhận */}
               {/* Bước 4: Ghi chú và xác nhận */}
               {step === 4 && (
                 <div>
-                  <h2 className="text-xl font-bold mb-4" aria-label="Bước 4: Ghi chú và Xác nhận">
+                  <h2
+                    className="text-xl font-bold mb-4"
+                    aria-label="Bước 4: Ghi chú và Xác nhận"
+                  >
                     4. Ghi chú và Xác nhận
                   </h2>
                   <div className="mb-4">
-                    <label className="font-medium" htmlFor="notes-textarea">Ghi chú</label>
+                    <label className="font-medium" htmlFor="notes-textarea">
+                      Ghi chú
+                    </label>
                     <Textarea
                       id="notes-textarea"
                       placeholder="Nhập ghi chú cho buổi hẹn..."
@@ -787,7 +921,7 @@ export default function AppointmentsPage() {
                     </Button>
                     <Button
                       size="lg"
-                      onClick={handleBookAppointment}
+                      onClick={handleBookingSubmit}
                       aria-label="Xác nhận đặt lịch hẹn"
                     >
                       Xác nhận đặt lịch
@@ -796,20 +930,22 @@ export default function AppointmentsPage() {
                 </div>
               )}
               {/* Bước 5: Thông báo kết quả */}
-              {step === 5 && booking && (
-                <div className="space-y-4 text-center" role="status" aria-live="polite">
-                  <h2 className="text-2xl font-bold text-green-600" aria-label={booking.success ? "Đặt lịch thành công!" : "Đặt lịch thất bại"}>
-                    {booking.success
-                      ? "Đặt lịch thành công!"
-                      : "Đặt lịch thất bại"}
+              {step === 5 && (
+                <div
+                  className="space-y-4 text-center"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <h2
+                    className="text-2xl font-bold text-green-600"
+                    aria-label="Đặt lịch thành công!"
+                  >
+                    Đặt lịch thành công!
                   </h2>
-                  <p>{booking.message}</p>
+                  <p>Lịch hẹn của bạn đã được đặt thành công.</p>
                   <Button
                     size="lg"
-                    onClick={() => {
-                      setStep(1);
-                      setBooking(null);
-                    }}
+                    onClick={resetBooking}
                     aria-label="Đặt lịch mới"
                   >
                     Đặt lịch mới
@@ -823,6 +959,91 @@ export default function AppointmentsPage() {
           {step !== 5 && summary}
         </div>
       </div>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xác nhận đặt lịch hẹn</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc chắn muốn đặt lịch hẹn cho dịch vụ đã chọn vào ngày{" "}
+              {selectedDate?.toLocaleDateString("vi-VN")} lúc{" "}
+              {needsConsultant
+                ? selectedSlot?.dateTime
+                  ? new Date(selectedSlot.dateTime).toLocaleTimeString(
+                      "vi-VN",
+                      { hour: "2-digit", minute: "2-digit" }
+                    )
+                  : ""
+                : selectedTime}
+              {needsConsultant && selectedSlot?.consultant && (
+                <>
+                  {" "}
+                  với tư vấn viên {selectedSlot.consultant.lastName}{" "}
+                  {selectedSlot.consultant.firstName}
+                </>
+              )}
+              ?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsConfirmDialogOpen(false)}
+            >
+              Hủy
+            </Button>
+            <Button onClick={handleConfirmBooking} disabled={isBookingLoading}>
+              {isBookingLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Đang xử lý...
+                </>
+              ) : (
+                "Xác nhận đặt lịch"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success Dialog */}
+      <Dialog open={isSuccessDialogOpen} onOpenChange={setIsSuccessDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-center">
+              <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+              Đặt lịch thành công!
+            </DialogTitle>
+            <DialogDescription className="text-center">
+              Lịch hẹn của bạn đã được ghi nhận.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col sm:flex-row justify-center gap-2">
+            {bookedAppointmentId && (
+              <Button onClick={handleGoToPayment} className="w-full sm:w-auto">
+                Đi đến trang thanh toán
+              </Button>
+            )}
+            {bookedChatId && (
+              <Button
+                onClick={handleGoToChat}
+                className="w-full sm:w-auto"
+                variant="outline"
+              >
+                Vào chat ngay
+              </Button>
+            )}
+            <Button
+              onClick={resetBooking}
+              className="w-full sm:w-auto"
+              variant="secondary"
+            >
+              Đặt lịch mới
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

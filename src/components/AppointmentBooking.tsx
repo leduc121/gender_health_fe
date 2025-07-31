@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import {
   Card,
@@ -10,9 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +20,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -29,20 +27,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import {
-  CalendarIcon,
-  Clock,
-  MapPin,
-  Star,
-  CheckCircle,
-  Loader2,
-} from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import {
-  ConsultantService,
   ConsultantProfile,
+  ConsultantService,
 } from "@/services/consultant.service";
+import {
+  CalendarIcon,
+  CheckCircle,
+  Clock,
+  Loader2,
+  MapPin,
+  Star,
+} from "lucide-react";
+import React, { useEffect, useState } from "react";
 
 // Types
 import { ConsultantAvailability } from "@/services/consultant.service";
@@ -73,8 +73,9 @@ const ErrorMessage: React.FC<{ message: string }> = ({ message }) => (
 const AppointmentBooking: React.FC = (): JSX.Element => {
   const { toast } = useToast();
   const [consultants, setConsultants] = useState<ConsultantProfile[]>([]);
-  const [selectedConsultant, setSelectedConsultant] =
-    useState<ConsultantProfile | null>(null);
+  const [selectedConsultant, setSelectedConsultant] = useState<
+    (ConsultantProfile & { availability?: ConsultantAvailability[] }) | null
+  >(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     new Date()
   );
@@ -98,7 +99,7 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
       setIsLoadingConsultants(true);
       setError(null);
       try {
-        const data:any = await ConsultantService.getAll();
+        const data: any = await ConsultantService.getAll();
         setConsultants(data.data.data);
       } catch (error) {
         const message =
@@ -120,7 +121,7 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
     setIsLoadingAppointments(true);
     try {
       const response = await fetch(
-        "https://gender-healthcare.org/api/appointments"
+        "https://gender-healthcare.org/appointments"
       );
       if (!response.ok) throw new Error("Failed to fetch appointments");
       const data = await response.json();
@@ -143,7 +144,10 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
   const handleConsultantSelect = async (consultant: ConsultantProfile) => {
     setIsLoadingAvailability(true);
     try {
-      const availability = await ConsultantService.getAvailability(consultant.id);
+      const availability = await ConsultantService.findConsultantAvailableSlots(
+        consultant.id,
+        selectedDate || new Date()
+      );
       setSelectedConsultant({ ...consultant, availability });
       setBookingStep(2);
     } catch (error) {
@@ -188,7 +192,7 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
       appointmentDate.setHours(hours, minutes, 0, 0);
 
       const response = await fetch(
-        "https://gender-healthcare.org/api/appointments",
+        "https://gender-healthcare.org/appointments",
         {
           method: "POST",
           headers: {
@@ -228,7 +232,7 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
   const handleCancelAppointment = async (appointmentId: string) => {
     try {
       const response = await fetch(
-        `https://gender-healthcare.org/api/appointments/${appointmentId}/cancel`,
+        `https://gender-healthcare.org/appointments/${appointmentId}/cancel`,
         { method: "POST" }
       );
 
@@ -318,17 +322,17 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                           <div className="flex items-center space-x-4">
                             <Avatar className="h-16 w-16">
                               <AvatarImage
-                                src={consultant.avatar}
-                                alt={`${consultant.firstName} ${consultant.lastName}`}
+                                src={consultant.user.profilePicture}
+                                alt={`${consultant.user.firstName} ${consultant.user.lastName}`}
                               />
                               <AvatarFallback>
-                                {consultant.firstName[0]}
-                                {consultant.lastName[0]}
+                                {consultant.user.firstName[0]}
+                                {consultant.user.lastName[0]}
                               </AvatarFallback>
                             </Avatar>
                             <div>
                               <CardTitle className="text-lg">
-                                {`${consultant.firstName} ${consultant.lastName}`}
+                                {`${consultant.user.firstName} ${consultant.user.lastName}`}
                               </CardTitle>
                               <CardDescription>
                                 {consultant.specialties.join(", ")}
@@ -338,14 +342,14 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                                   <Star
                                     key={i}
                                     className={`h-4 w-4 ${
-                                      i < consultant.rating
+                                      i < (consultant.rating || 0)
                                         ? "text-yellow-500 fill-yellow-500"
                                         : "text-gray-300"
                                     }`}
                                   />
                                 ))}
                                 <span className="ml-1 text-sm text-muted-foreground">
-                                  {consultant.rating.toFixed(1)}
+                                  {(consultant.rating || 0).toFixed(1)}
                                 </span>
                               </div>
                             </div>
@@ -384,17 +388,17 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                         <div className="flex items-center space-x-4">
                           <Avatar className="h-16 w-16">
                             <AvatarImage
-                              src={selectedConsultant.avatar}
-                              alt={`${selectedConsultant.firstName} ${selectedConsultant.lastName}`}
+                              src={selectedConsultant.user.profilePicture}
+                              alt={`${selectedConsultant.user.firstName} ${selectedConsultant.user.lastName}`}
                             />
                             <AvatarFallback>
-                              {selectedConsultant.firstName[0]}
-                              {selectedConsultant.lastName[0]}
+                              {selectedConsultant.user.firstName[0]}
+                              {selectedConsultant.user.lastName[0]}
                             </AvatarFallback>
                           </Avatar>
                           <div>
                             <h4 className="font-medium">
-                              {`${selectedConsultant.firstName} ${selectedConsultant.lastName}`}
+                              {`${selectedConsultant.user.firstName} ${selectedConsultant.user.lastName}`}
                             </h4>
                             <p className="text-sm text-muted-foreground">
                               {selectedConsultant.specialties.join(", ")}
@@ -415,28 +419,32 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                   <div className="md:w-2/3">
                     <Card className="shadow-lg">
                       <CardHeader>
-                        <CardTitle className="text-2xl font-bold text-primary">Chọn ngày và giờ</CardTitle>
+                        <CardTitle className="text-2xl font-bold text-primary">
+                          Chọn ngày và giờ
+                        </CardTitle>
                         <CardDescription>
                           Chọn thời gian phù hợp cho buổi tư vấn của bạn
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
                         <div>
-                          <h4 className="font-semibold text-lg mb-3 text-center">Chọn ngày</h4>
+                          <h4 className="font-semibold text-lg mb-3 text-center">
+                            Chọn ngày
+                          </h4>
                           <div className="p-3 bg-muted/50 rounded-2xl">
-                          <CalendarComponent
-                            mode="single"
-                            selected={selectedDate}
-                            onSelect={handleDateSelect}
-                            className="rounded-md"
-                            disabled={(date: Date) => {
-                              const today = new Date();
-                              today.setHours(0, 0, 0, 0);
-                              const maxDate = new Date();
-                              maxDate.setDate(today.getDate() + 30);
-                              return date < today || date > maxDate;
-                            }}
-                          />
+                            <CalendarComponent
+                              mode="single"
+                              selected={selectedDate}
+                              onSelect={handleDateSelect}
+                              className="rounded-md"
+                              disabled={(date: Date) => {
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                const maxDate = new Date();
+                                maxDate.setDate(today.getDate() + 30);
+                                return date < today || date > maxDate;
+                              }}
+                            />
                           </div>
                         </div>
                         <div className="border-l border-border pl-6">
@@ -446,7 +454,7 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                           <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
                             {selectedDate ? (
                               selectedConsultant.availability
-                                .filter(
+                                ?.filter(
                                   (slot) =>
                                     slot.dayOfWeek === selectedDate?.getDay()
                                 )
@@ -494,17 +502,17 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                     <div className="flex items-center">
                       <Avatar className="h-12 w-12 mr-4">
                         <AvatarImage
-                          src={selectedConsultant.avatar}
-                          alt={`${selectedConsultant.firstName} ${selectedConsultant.lastName}`}
+                          src={selectedConsultant.user.profilePicture}
+                          alt={`${selectedConsultant.user.firstName} ${selectedConsultant.user.lastName}`}
                         />
                         <AvatarFallback>
-                          {selectedConsultant.firstName[0]}
-                          {selectedConsultant.lastName[0]}
+                          {selectedConsultant.user.firstName[0]}
+                          {selectedConsultant.user.lastName[0]}
                         </AvatarFallback>
                       </Avatar>
                       <div>
                         <h4 className="font-medium">
-                          {`${selectedConsultant.firstName} ${selectedConsultant.lastName}`}
+                          {`${selectedConsultant.user.firstName} ${selectedConsultant.user.lastName}`}
                         </h4>
                         <p className="text-sm text-muted-foreground">
                           {selectedConsultant.specialties.join(", ")}
@@ -621,7 +629,7 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                   <div className="space-y-2">
                     <p>
                       <span className="font-medium">Tư vấn viên:</span>{" "}
-                      {`${selectedConsultant.firstName} ${selectedConsultant.lastName}`}
+                      {`${selectedConsultant.user.firstName} ${selectedConsultant.user.lastName}`}
                     </p>
                     <p>
                       <span className="font-medium">Ngày:</span>{" "}
@@ -743,17 +751,17 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                 <div className="flex items-center">
                   <Avatar className="h-10 w-10 mr-4">
                     <AvatarImage
-                      src={selectedConsultant.avatar}
-                      alt={`${selectedConsultant.firstName} ${selectedConsultant.lastName}`}
+                      src={selectedConsultant.user.profilePicture}
+                      alt={`${selectedConsultant.user.firstName} ${selectedConsultant.user.lastName}`}
                     />
                     <AvatarFallback>
-                      {selectedConsultant.firstName[0]}
-                      {selectedConsultant.lastName[0]}
+                      {selectedConsultant.user.firstName[0]}
+                      {selectedConsultant.user.lastName[0]}
                     </AvatarFallback>
                   </Avatar>
                   <div>
                     <h4 className="font-medium">
-                      {`${selectedConsultant.firstName} ${selectedConsultant.lastName}`}
+                      {`${selectedConsultant.user.firstName} ${selectedConsultant.user.lastName}`}
                     </h4>
                     <p className="text-sm text-muted-foreground">
                       {selectedConsultant.specialties.join(", ")}

@@ -1,8 +1,9 @@
 "use client";
-import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import tokenMethod from "@/utils/token";
+import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
 
 const STATUS_OPTIONS = [
   { value: "pending", label: "Chờ xác nhận" },
@@ -25,7 +26,7 @@ export default function UpdateAppointmentStatusPage() {
   const [error, setError] = useState("");
 
   const token =
-    typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+    typeof window !== "undefined" ? tokenMethod.get()?.accessToken : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

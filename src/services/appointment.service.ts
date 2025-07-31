@@ -1,5 +1,7 @@
 import { API_ENDPOINTS } from "@/config/api";
 import { Appointment, PaginationResponse } from "@/types/api.d";
+import tokenMethod from "@/utils/token";
+import { apiClient } from "./api";
 
 export type AppointmentStatus =
   | "pending"
@@ -46,11 +48,19 @@ export interface CancelAppointmentDto {
 
 export const AppointmentService = {
   // Lấy danh sách appointments của user hiện tại
-  getUserAppointments: async (query?: GetAppointmentsQuery): Promise<PaginationResponse<Appointment>> => {
+  getUserAppointments: async (
+    query?: GetAppointmentsQuery
+  ): Promise<PaginationResponse<Appointment>> => {
     try {
       console.log("[AppointmentService] Fetching current user appointments...");
-      const response = await apiClient.get<PaginationResponse<Appointment>>(API_ENDPOINTS.APPOINTMENTS.BASE, { params: query });
-      console.log("[AppointmentService] Raw API Response for current user appointments:", response);
+      const response = await apiClient.get<PaginationResponse<Appointment>>(
+        API_ENDPOINTS.APPOINTMENTS.BASE,
+        { params: query }
+      );
+      console.log(
+        "[AppointmentService] Raw API Response for current user appointments:",
+        response
+      );
       return response; // The apiClient already returns the expected structure
     } catch (error: any) {
       console.error(
@@ -80,13 +90,21 @@ export const AppointmentService = {
   },
 
   // Lấy tất cả appointments (cho admin/consultant)
-  getAllAppointments: async (query?: GetAppointmentsQuery): Promise<PaginationResponse<Appointment>> => {
+  getAllAppointments: async (
+    query?: GetAppointmentsQuery
+  ): Promise<PaginationResponse<Appointment>> => {
     try {
       console.log("[AppointmentService] Fetching all appointments...");
-      const response = await apiClient.get<PaginationResponse<Appointment>>(API_ENDPOINTS.APPOINTMENTS.GET_ALL, { params: query });
+      const response = await apiClient.get<PaginationResponse<Appointment>>(
+        API_ENDPOINTS.APPOINTMENTS.GET_ALL,
+        { params: query }
+      );
       return response; // The apiClient already returns the expected structure
     } catch (error) {
-      console.error("[AppointmentService] Error fetching all appointments:", error);
+      console.error(
+        "[AppointmentService] Error fetching all appointments:",
+        error
+      );
       throw error;
     }
   },
@@ -95,7 +113,9 @@ export const AppointmentService = {
   getAppointmentById: async (id: string): Promise<Appointment | null> => {
     try {
       console.log("[AppointmentService] Fetching appointment by ID:", id);
-      const response = await apiClient.get<Appointment>(`${API_ENDPOINTS.APPOINTMENTS.BASE}/${id}`);
+      const response = await apiClient.get<Appointment>(
+        `${API_ENDPOINTS.APPOINTMENTS.BASE}/${id}`
+      );
       return response; // The apiClient returns the Appointment object directly
     } catch (error) {
       console.error("[AppointmentService] Error fetching appointment:", error);
@@ -109,15 +129,25 @@ export const AppointmentService = {
   ): Promise<Appointment> => {
     try {
       console.log("[AppointmentService] Creating appointment with data:", data);
-      const accessToken = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+      const accessToken =
+        typeof window !== "undefined" ? tokenMethod.get()?.accessToken : null;
       console.log("[AppointmentService] Sending with headers:", {
         Authorization: `Bearer ${accessToken}`,
       });
 
-      const response = await apiClient.post<Appointment>(API_ENDPOINTS.APPOINTMENTS.BASE, data, {
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-      });
-      console.log("[AppointmentService] Create appointment successful. Response:", response);
+      const response = await apiClient.post<Appointment>(
+        API_ENDPOINTS.APPOINTMENTS.BASE,
+        data,
+        {
+          headers: accessToken
+            ? { Authorization: `Bearer ${accessToken}` }
+            : {},
+        }
+      );
+      console.log(
+        "[AppointmentService] Create appointment successful. Response:",
+        response
+      );
       return response; // The apiClient returns the Appointment object directly
     } catch (error: any) {
       console.error("[AppointmentService] Error creating appointment:", error);
@@ -144,7 +174,10 @@ export const AppointmentService = {
   },
 
   // Cập nhật trạng thái appointment
-  updateAppointment: async (id: string, data: Partial<Appointment>): Promise<Appointment> => {
+  updateAppointment: async (
+    id: string,
+    data: Partial<Appointment>
+  ): Promise<Appointment> => {
     try {
       console.log("[AppointmentService] Updating appointment:", id, data);
       const response = await apiClient.patch<Appointment>(
@@ -159,22 +192,35 @@ export const AppointmentService = {
   },
 
   // Cập nhật trạng thái appointment (giữ lại cho các trường hợp chỉ cập nhật trạng thái)
-  updateAppointmentStatus: async (id: string, data: UpdateAppointmentDto): Promise<Appointment> => {
+  updateAppointmentStatus: async (
+    id: string,
+    data: UpdateAppointmentDto
+  ): Promise<Appointment> => {
     try {
-      console.log("[AppointmentService] Updating appointment status:", id, data);
+      console.log(
+        "[AppointmentService] Updating appointment status:",
+        id,
+        data
+      );
       const response = await apiClient.patch<Appointment>(
         API_ENDPOINTS.APPOINTMENTS.UPDATE_STATUS(id),
         data
       );
       return response; // The apiClient returns the Appointment object directly
     } catch (error) {
-      console.error("[AppointmentService] Error updating appointment status:", error);
+      console.error(
+        "[AppointmentService] Error updating appointment status:",
+        error
+      );
       throw error;
     }
   },
 
   // Hủy appointment
-  cancelAppointment: async (id: string, data: CancelAppointmentDto): Promise<void> => {
+  cancelAppointment: async (
+    id: string,
+    data: CancelAppointmentDto
+  ): Promise<void> => {
     try {
       console.log("[AppointmentService] Cancelling appointment:", id, data);
       await apiClient.patch<void>(API_ENDPOINTS.APPOINTMENTS.CANCEL(id), data);
@@ -190,8 +236,13 @@ export const AppointmentService = {
   // Lấy chat room cho appointment
   getAppointmentChatRoom: async (id: string): Promise<any> => {
     try {
-      console.log("[AppointmentService] Getting chat room for appointment:", id);
-      const response = await apiClient.get<any>(API_ENDPOINTS.APPOINTMENTS.CHAT_ROOM(id));
+      console.log(
+        "[AppointmentService] Getting chat room for appointment:",
+        id
+      );
+      const response = await apiClient.get<any>(
+        API_ENDPOINTS.APPOINTMENTS.CHAT_ROOM(id)
+      );
       return response; // The apiClient returns the response object directly
     } catch (error) {
       console.error("[AppointmentService] Error getting chat room:", error);

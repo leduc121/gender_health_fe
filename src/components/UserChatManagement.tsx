@@ -1,18 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -20,17 +10,26 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { ChatService, ChatQuestion } from "@/services/chat.service";
+import { ChatService } from "@/services/chat.service";
+import { Question } from "@/types/api";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Checkbox } from "@/components/ui/checkbox";
+import React, { useEffect, useState } from "react";
 
 const CreateQuestionDialog: React.FC<{
   isOpen: boolean;
@@ -39,7 +38,14 @@ const CreateQuestionDialog: React.FC<{
   isLoading: boolean;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>; // Add setIsLoading prop
   router: any; // Add router prop
-}> = ({ isOpen, onClose, onQuestionCreated, isLoading, setIsLoading, router }) => {
+}> = ({
+  isOpen,
+  onClose,
+  onQuestionCreated,
+  isLoading,
+  setIsLoading,
+  router,
+}) => {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const { toast } = useToast();
@@ -57,8 +63,8 @@ const CreateQuestionDialog: React.FC<{
     setIsLoading(true); // Set loading true at the start
     try {
       const response = await ChatService.createQuestion({ title, content });
-      const newQuestionId = response.id;
-      
+      const newQuestionId = response.data.id;
+
       toast({
         title: "Thành công",
         description: "Câu hỏi của bạn đã được tạo.",
@@ -137,9 +143,8 @@ const CreateQuestionDialog: React.FC<{
 const UserChatManagement: React.FC = () => {
   const { toast } = useToast();
   const router = useRouter();
-  const [questions, setQuestions] = useState<ChatQuestion[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
   const [isCreateQuestionDialogOpen, setIsCreateQuestionDialogOpen] =
     useState(false);
   const [isCreatingQuestion, setIsCreatingQuestion] = useState(false); // This state will be passed to dialog
@@ -147,9 +152,7 @@ const UserChatManagement: React.FC = () => {
   const fetchQuestions = async () => {
     setIsLoading(true);
     try {
-      const response = await ChatService.getQuestions({
-        search: searchTerm,
-      });
+      const response = await ChatService.getQuestions();
       setQuestions(response.data);
     } catch (error) {
       console.error("Error fetching chat questions:", error);
@@ -165,11 +168,7 @@ const UserChatManagement: React.FC = () => {
 
   useEffect(() => {
     fetchQuestions();
-  }, [searchTerm]);
-
-  const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(event.target.value);
-  };
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -197,15 +196,6 @@ const UserChatManagement: React.FC = () => {
         </Button>
       </div>
 
-      <div className="mb-6">
-        <Input
-          placeholder="Tìm kiếm tiêu đề..."
-          value={searchTerm}
-          onChange={handleSearch}
-          className="max-w-sm"
-        />
-      </div>
-
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
@@ -214,7 +204,9 @@ const UserChatManagement: React.FC = () => {
             </div>
           ) : questions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <h3 className="text-lg font-semibold mb-2">Chưa có câu hỏi nào</h3>
+              <h3 className="text-lg font-semibold mb-2">
+                Chưa có câu hỏi nào
+              </h3>
               <p className="text-muted-foreground text-center mb-4">
                 Bạn chưa có câu hỏi tư vấn nào. Hãy tạo một câu hỏi mới!
               </p>

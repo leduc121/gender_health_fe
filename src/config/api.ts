@@ -20,6 +20,7 @@ export const API_ENDPOINTS = {
     RESET_PASSWORD: "/auth/reset-password",
     REFRESH_TOKEN: "/auth/refresh-token",
     ME: "/auth/me",
+    GOOGLE: "/auth/google/authenticate",
   },
 
   // Users
@@ -62,9 +63,12 @@ export const API_ENDPOINTS = {
     UPDATE_MY_PROFILE: "/consultant-profiles/me", // Endpoint to update my consultant profile
     SCHEDULE: (id: string) => `/consultant-profiles/${id}/working-hours`,
     PENDING_APPROVAL: "/consultant-profiles/pending-approval",
-    UPDATE_WORKING_HOURS: (id: string) => `/consultant-profiles/${id}/working-hours`,
-    GENERATE_SCHEDULE: (id: string) => `/consultant-profiles/${id}/generate-schedule`,
-    ENSURE_UPCOMING_SCHEDULE: (id: string) => `/consultant-profiles/${id}/ensure-upcoming-schedule`,
+    UPDATE_WORKING_HOURS: (id: string) =>
+      `/consultant-profiles/${id}/working-hours`,
+    GENERATE_SCHEDULE: (id: string) =>
+      `/consultant-profiles/${id}/generate-schedule`,
+    ENSURE_UPCOMING_SCHEDULE: (id: string) =>
+      `/consultant-profiles/${id}/ensure-upcoming-schedule`,
   },
 
   // Menstrual Cycles
@@ -90,35 +94,48 @@ export const API_ENDPOINTS = {
     STATISTICS: {
       DASHBOARD: "/sti-test-processes/statistics/dashboard",
       PERIOD: "/sti-test-processes/statistics/period",
-      PATIENT: (patientId: string) => `/sti-test-processes/statistics/patient/${patientId}`,
+      PATIENT: (patientId: string) =>
+        `/sti-test-processes/statistics/patient/${patientId}`,
     },
     GET_ALL_PROCESSES: "/sti-test-processes/search",
-    GET_PROCESS_BY_CODE: (testCode: string) => `/sti-test-processes/test-code/${testCode}`,
-    GET_PROCESS_BY_PATIENT: (patientId: string) => `/sti-test-processes/patient/${patientId}`,
+    GET_PROCESS_BY_CODE: (testCode: string) =>
+      `/sti-test-processes/test-code/${testCode}`,
+    GET_PROCESS_BY_PATIENT: (patientId: string) =>
+      `/sti-test-processes/patient/${patientId}`,
     UPDATE_PROCESS: (id: string) => `/sti-test-processes/${id}`,
     UPDATE_PROCESS_STATUS: (id: string) => `/sti-test-processes/${id}/status`,
     WORKFLOW_STEPS: "/sti-test-processes/workflow/steps",
-    NEXT_WORKFLOW_STEPS: (status: string) => `/sti-test-processes/workflow/next-steps/${status}`,
-    TRANSITION_STATUS: (id: string) => `/sti-test-processes/${id}/workflow/transition`,
-    BOOKING_FROM_SERVICE_SELECTION: "/sti-test-processes/booking/from-service-selection",
+    NEXT_WORKFLOW_STEPS: (status: string) =>
+      `/sti-test-processes/workflow/next-steps/${status}`,
+    TRANSITION_STATUS: (id: string) =>
+      `/sti-test-processes/${id}/workflow/transition`,
+    BOOKING_FROM_SERVICE_SELECTION:
+      "/sti-test-processes/booking/from-service-selection",
     AVAILABLE_STI_SERVICES: "/sti-test-processes/services/available",
-    STI_SERVICES_FROM_PACKAGE: (packageId: string) => `/sti-test-processes/services/package/${packageId}`,
+    STI_SERVICES_FROM_PACKAGE: (packageId: string) =>
+      `/sti-test-processes/services/package/${packageId}`,
 
     // Test Results specific endpoints
     CREATE_TEST_RESULT: "/test-results",
     GET_ALL_TEST_RESULTS: "/test-results",
-    GET_TEST_RESULT_BY_APPOINTMENT: (appointmentId: string) => `/test-results/appointment/${appointmentId}`,
+    GET_TEST_RESULT_BY_APPOINTMENT: (appointmentId: string) =>
+      `/test-results/appointment/${appointmentId}`,
     GET_TEST_RESULT_BY_ID: (id: string) => `/test-results/${id}`,
     UPDATE_TEST_RESULT: (id: string) => `/test-results/${id}`,
     DELETE_TEST_RESULT: (id: string) => `/test-results/${id}`,
     SEND_NOTIFICATION: (id: string) => `/test-results/${id}/send-notification`,
-    SEND_NOTIFICATION_BY_APPOINTMENT: (appointmentId: string) => `/test-results/appointment/${appointmentId}/send-notification`,
+    SEND_NOTIFICATION_BY_APPOINTMENT: (appointmentId: string) =>
+      `/test-results/appointment/${appointmentId}/send-notification`,
     MY_TEST_RESULTS: "/test-results/patient/my-results",
-    MY_TEST_RESULT_DETAILS: (id: string) => `/test-results/patient/result/${id}`,
+    MY_TEST_RESULT_DETAILS: (id: string) =>
+      `/test-results/patient/result/${id}`,
     EXPORT_PDF: (id: string) => `/test-results/${id}/export-pdf`,
-    EXPORT_CONSULTATION_PDF: (appointmentId: string) => `/test-results/consultation/${appointmentId}/export-pdf`,
-    EXPORT_STI_TEST_RESULT_PDF: (stiProcessId: string) => `/test-results/sti/${stiProcessId}/export-pdf`,
-    GET_TEST_RESULTS_TEMPLATE: (serviceType: string) => `/test-results/templates/${serviceType}`,
+    EXPORT_CONSULTATION_PDF: (appointmentId: string) =>
+      `/test-results/consultation/${appointmentId}/export-pdf`,
+    EXPORT_STI_TEST_RESULT_PDF: (stiProcessId: string) =>
+      `/test-results/sti/${stiProcessId}/export-pdf`,
+    GET_TEST_RESULTS_TEMPLATE: (serviceType: string) =>
+      `/test-results/templates/${serviceType}`,
     VALIDATE_TEST_RESULTS: "/test-results/validate",
     GENERATE_RECOMMENDATIONS: "/test-results/recommendations",
   },

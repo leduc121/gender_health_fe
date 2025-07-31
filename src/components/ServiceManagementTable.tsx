@@ -700,7 +700,9 @@ export default function ServiceManagementTable() {
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Giá:</Label>
-                <span className="col-span-3">{selectedService.price?.toLocaleString() || "N/A"}đ</span>
+                <span className="col-span-3">{selectedService.price != null 
+            ? formatCurrency(selectedService.price) 
+            : "N/A"}</span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Thời lượng:</Label>

@@ -1,6 +1,5 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,9 +11,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Eye, EyeOff } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
 import {
   Select,
   SelectContent,
@@ -22,14 +18,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox"; // Import Checkbox
-import { useAuth } from "@/contexts/AuthContext";
-import { GoogleLogin } from "@react-oauth/google";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/components/ui/use-toast";
+import { RegisterDto, useAuth, User } from "@/contexts/AuthContext";
 import { apiClient } from "@/services/api";
-import { CredentialResponse } from "@react-oauth/google";
-import { User, RegisterDto } from "@/contexts/AuthContext";
-import Link from "next/link";
 import { forgotPassword } from "@/services/auth.service";
+import { CredentialResponse, GoogleLogin } from "@react-oauth/google";
+import { Eye, EyeOff } from "lucide-react";
+import React, { useCallback, useState } from "react";
 import ConsultantRegistrationForm from "./ConsultantRegistrationForm";
 
 interface AuthDialogProps {
@@ -50,8 +46,10 @@ export default function AuthDialog({
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotError, setForgotError] = useState("");
-  const [passwordError, setPasswordError] = useState(""); // State for password validation error
-  const [selectedGender, setSelectedGender] = useState<"M" | "F" | "O" | undefined>(undefined); // State for selected gender
+  const [passwordError, setPasswordError] = useState("");
+  const [selectedGender, setSelectedGender] = useState<"M" | "F" | undefined>(
+    undefined
+  );
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -119,7 +117,7 @@ export default function AuthDialog({
         password: password, // Use the validated password
         phone: formData.get("phone") as string,
         address: formData.get("address") as string,
-        gender: formData.get("gender") as "M" | "F" | "O",
+        gender: formData.get("gender") as "M" | "F",
       };
 
       await register(data);
@@ -353,66 +351,69 @@ export default function AuthDialog({
                     name="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Tạo mật khẩu"
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                {passwordError && (
+                  <p className="text-red-500 text-sm">{passwordError}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="register-phone">Số điện thoại</Label>
+                <Input
+                  id="register-phone"
+                  name="phone"
+                  type="tel"
+                  placeholder="Nhập số điện thoại"
                   required
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
               </div>
-              {passwordError && (
-                <p className="text-red-500 text-sm">{passwordError}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="register-phone">Số điện thoại</Label>
-              <Input
-                id="register-phone"
-                name="phone"
-                type="tel"
-                placeholder="Nhập số điện thoại"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="register-address">Địa chỉ</Label>
-              <Input
-                id="register-address"
-                name="address"
-                placeholder="Nhập địa chỉ"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="register-gender">Giới tính</Label>
-              <Select name="gender" required onValueChange={(value: "M" | "F" | "O") => setSelectedGender(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn giới tính" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="M">Nam</SelectItem>
-                  <SelectItem value="F">Nữ</SelectItem>
-                  <SelectItem value="O">Khác</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
-            </Button>
-            <p className="text-xs text-muted-foreground text-center">
-              Bằng cách tạo tài khoản, bạn đồng ý với Điều khoản dịch vụ và
-              Chính sách bảo mật của chúng tôi.
-            </p>
-          </form>
+              <div className="space-y-2">
+                <Label htmlFor="register-address">Địa chỉ</Label>
+                <Input
+                  id="register-address"
+                  name="address"
+                  placeholder="Nhập địa chỉ"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="register-gender">Giới tính</Label>
+                <Select
+                  name="gender"
+                  required
+                  onValueChange={(value: "M" | "F") => setSelectedGender(value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn giới tính" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="M">Nam</SelectItem>
+                    <SelectItem value="F">Nữ</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                Bằng cách tạo tài khoản, bạn đồng ý với Điều khoản dịch vụ và
+                Chính sách bảo mật của chúng tôi.
+              </p>
+            </form>
           </TabsContent>
           <TabsContent value="register-consultant" className="space-y-4">
             <ConsultantRegistrationForm setOpen={setOpen} />

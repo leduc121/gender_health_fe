@@ -1,18 +1,19 @@
 "use client";
 
+import { useToast } from "@/components/ui/use-toast";
+import { API_ENDPOINTS } from "@/config/api";
+import { apiClient } from "@/services/api";
+import { authService } from "@/services/auth/authService";
+import { User } from "@/services/user.service";
+import tokenMethod from "@/utils/token";
+import { useRouter } from "next/navigation";
 import React, {
   createContext,
-  useContext,
-  useState,
-  useEffect,
   useCallback,
+  useContext,
+  useEffect,
+  useState,
 } from "react";
-import { useRouter } from "next/navigation";
-import { useToast } from "@/components/ui/use-toast";
-import { apiClient } from "@/services/api";
-import { API_ENDPOINTS } from "@/config/api";
-import { User } from "@/services/user.service"; // Import User from user.service
-import { ConsultantProfile } from "@/services/consultant.service"; // Import ConsultantProfile
 
 export type { User };
 
@@ -33,7 +34,8 @@ interface RefreshTokenResponse {
   refreshToken: string;
 }
 
-export interface RegisterDto { // Export the interface
+export interface RegisterDto {
+  // Export the interface
   email: string;
   password: string;
   firstName: string;
@@ -65,15 +67,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    
+
     console.log("[AuthContext] Initializing...");
-    
-    const accessToken = localStorage.getItem("accessToken");
+
+    const accessToken = tokenMethod.get()?.accessToken;
     if (accessToken) {
-      console.log("[AuthContext] Found access token, setting headers");
-      apiClient.setDefaultHeaders({
-        Authorization: `Bearer ${accessToken}`,
-      });
       // Try to check auth with existing token
       checkAuth();
     } else {
@@ -83,38 +81,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const refreshToken = async () => {
-    try {
-      const refreshToken = localStorage.getItem("refreshToken");
-      if (!refreshToken) throw new Error("No refresh token");
-      const response = await apiClient.post<RefreshTokenResponse>(
-        API_ENDPOINTS.AUTH.REFRESH_TOKEN,
-        { refreshToken }
-      );
-      localStorage.setItem("accessToken", response.accessToken);
-      localStorage.setItem("refreshToken", response.refreshToken);
-      // Cập nhật authorization header
-      apiClient.setDefaultHeaders({
-        Authorization: `Bearer ${response.accessToken}`,
-      });
-      return response;
-    } catch (error) {
-      throw error;
-    }
-  };
-
   const checkAuth = async () => {
     try {
       console.log("[AuthContext] Checking auth...");
-      const userData = await apiClient.get<User>(API_ENDPOINTS.AUTH.ME);
+      const userData = await authService.getMe();
       console.log("[AuthContext] Auth successful:", userData);
       const userWithFullName = {
         ...userData,
-        fullName: `${userData.firstName || ""} ${userData.lastName || ""}`.trim(),
+        fullName:
+          `${userData.firstName || ""} ${userData.lastName || ""}`.trim(),
       };
-      setUser(userWithFullName);
+      setUser(userWithFullName as User);
       // Set cookie với token thật
-      const accessToken = localStorage.getItem("accessToken");
+      const accessToken = tokenMethod.get()?.accessToken;
       if (accessToken) {
         document.cookie = `auth-token=${accessToken}; path=/; max-age=86400`;
       }
@@ -124,18 +103,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error.status === 401) {
         try {
           console.log("[AuthContext] Trying to refresh token...");
-          await refreshToken();
-          const userData = await apiClient.get<User>(API_ENDPOINTS.AUTH.ME);
-          console.log("[AuthContext] Auth successful after refresh:", userData);
+          const userData = await authService.getMe();
           const userWithFullNameAfterRefresh = {
             ...userData,
-            fullName: `${userData.firstName || ""} ${userData.lastName || ""}`.trim(),
+            fullName:
+              `${userData.firstName || ""} ${userData.lastName || ""}`.trim(),
           };
-          setUser(userWithFullNameAfterRefresh);
-          const accessToken = localStorage.getItem("accessToken");
-          if (accessToken) {
-            document.cookie = `auth-token=${accessToken}; path=/; max-age=86400`;
-          }
+          setUser(userWithFullNameAfterRefresh as User);
         } catch (refreshError) {
           console.error("[AuthContext] Refresh failed:", refreshError);
           logoutUser(); // Clear user data and tokens
@@ -154,27 +128,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       console.log("[AuthContext] Attempting login...");
-      const response = await apiClient.post<any>(API_ENDPOINTS.AUTH.LOGIN, {
+      const response = await authService.login({
         email,
         password,
       });
-      const data = response;
+      const data = response.data;
       if (data && data.accessToken) {
-        localStorage.setItem("accessToken", data.accessToken);
-        localStorage.setItem("refreshToken", data.refreshToken);
-        document.cookie = `auth-token=${data.accessToken}; path=/; max-age=86400`;
-        apiClient.setDefaultHeaders({
-          Authorization: `Bearer ${data.accessToken}`,
+        tokenMethod.set({
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
         });
         // Lấy lại user đầy đủ từ backend
-        const freshUser = await apiClient.get<User>("/users/me");
+        const freshUser = await authService.getMe();
         const freshUserWithFullName = {
           ...freshUser,
-          fullName: `${freshUser.firstName || ""} ${freshUser.lastName || ""}`.trim(),
+          fullName:
+            `${freshUser.firstName || ""} ${freshUser.lastName || ""}`.trim(),
         };
-        setUser(freshUserWithFullName);
+        setUser(freshUserWithFullName as User);
         localStorage.setItem("userId", freshUser.id);
-        console.log("[AuthContext] Login successful:", freshUser);
       } else {
         throw new Error(
           "Đăng nhập thất bại: Không tìm thấy accessToken trong response"
@@ -185,7 +157,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: "Chào mừng bạn quay trở lại!",
       });
       // Redirect based on user role
-      const userRole = typeof data.user.role === "object" ? data.user.role.name : data.user.role;
+      const userRole =
+        typeof data.user.role === "object"
+          ? data.user.role.name
+          : data.user.role;
       if (data && data.user && userRole === "admin") {
         router.push("/admin");
       } else if (data && data.user && userRole === "consultant") {
@@ -216,9 +191,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       console.error("[AuthContext] Registration error:", error); // Log the full error object
       let errorMessage = "Có lỗi xảy ra";
-      if (error.response && error.response.data && error.response.data.message) {
+      if (
+        error.response &&
+        error.response.data &&
+        error.response.data.message
+      ) {
         errorMessage = error.response.data.message;
-      } else if (error.message) { // Use error.message for generic errors
+      } else if (error.message) {
+        // Use error.message for generic errors
         errorMessage = error.message;
       }
       toast({
@@ -234,7 +214,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("userId");
-    document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;"; // Clear auth-token cookie
+    document.cookie =
+      "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;"; // Clear auth-token cookie
     apiClient.removeDefaultHeader("Authorization");
     setUser(null);
     router.push("/");

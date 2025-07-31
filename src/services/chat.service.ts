@@ -1,9 +1,10 @@
-import { apiClient } from "./api";
-import { io, Socket } from "socket.io-client";
 import { Appointment } from "@/services/appointment.service"; // Import Appointment type
-import { User } from "@/services/user.service"; // Import User type
 import { ConsultantProfile } from "@/services/consultant.service"; // Import ConsultantProfile type
+import { User } from "@/services/user.service"; // Import User type
 import { ApiResponse, CreateQuestionDto, Question } from "@/types/api.d"; // Import ApiResponse, CreateQuestionDto and Question
+import tokenMethod from "@/utils/token";
+import { io, Socket } from "socket.io-client";
+import { apiClient } from "./api";
 
 export interface ChatRoom {
   id: string;
@@ -44,10 +45,8 @@ let reconnectAttempts = 0;
 
 export function initializeSocket(): Socket {
   const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("accessToken")
-      : undefined;
-  const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+    typeof window !== "undefined" ? tokenMethod.get()?.accessToken : undefined;
+  const SOCKET_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL as string;
 
   const newSocket = io(SOCKET_URL, {
     path: "/socket.io",
@@ -100,36 +99,46 @@ export function getSocket(): Socket {
 }
 
 export const ChatService = {
-  async getAppointmentChatDetails(appointmentId: string): Promise<Appointment & { user: User, consultant: ConsultantProfile }> {
-    const res = await apiClient.get<Appointment & { user: User, consultant: ConsultantProfile }>(
-      `/appointments/${appointmentId}/chat-details`
-    );
+  async getAppointmentChatDetails(
+    appointmentId: string
+  ): Promise<Appointment & { user: User; consultant: ConsultantProfile }> {
+    const res = await apiClient.get<
+      Appointment & { user: User; consultant: ConsultantProfile }
+    >(`/appointments/${appointmentId}/chat-room`);
     return res;
   },
 
   async joinRoom(appointmentId: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      getSocket().emit("join_appointment_chat", { appointmentId }, (ack: any) => {
-        if (ack.status === "success") resolve();
-        else reject(ack);
-      });
+      getSocket().emit(
+        "join_appointment_chat",
+        { appointmentId },
+        (ack: any) => {
+          if (ack.status === "success") resolve();
+          else reject(ack);
+        }
+      );
     });
   },
 
   async leaveRoom(appointmentId: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      getSocket().emit("leave_appointment_chat", { appointmentId }, (ack: any) => {
-        if (ack.status === "success") resolve();
-        else reject(ack);
-      });
+      getSocket().emit(
+        "leave_appointment_chat",
+        { appointmentId },
+        (ack: any) => {
+          if (ack.status === "success") resolve();
+          else reject(ack);
+        }
+      );
     });
   },
 
   async setTyping(appointmentId: string, isTyping: boolean) {
     try {
-        getSocket().emit("typing", { appointmentId, isTyping });
+      getSocket().emit("typing", { appointmentId, isTyping });
     } catch (error) {
-        console.error("Could not set typing status:", error);
+      console.error("Could not set typing status:", error);
     }
   },
 
@@ -142,7 +151,10 @@ export const ChatService = {
   },
 
   // Appointment-based chat methods (restored/renamed for clarity)
-  async getAppointmentMessages(appointmentId: string, params: Record<string, any> = {}) {
+  async getAppointmentMessages(
+    appointmentId: string,
+    params: Record<string, any> = {}
+  ) {
     const query = new URLSearchParams(params).toString();
     return apiClient.get<PaginatedResponse<ChatMessage>>(
       `/appointments/${appointmentId}/messages?${query}`
@@ -191,7 +203,10 @@ export const ChatService = {
   },
 
   // Question-based chat methods
-  async getQuestionMessages(questionId: string, params: Record<string, any> = {}) {
+  async getQuestionMessages(
+    questionId: string,
+    params: Record<string, any> = {}
+  ) {
     const query = new URLSearchParams(params).toString();
     return apiClient.get<PaginatedResponse<ChatMessage>>(
       `/chat/questions/${questionId}/messages?${query}`
@@ -268,42 +283,60 @@ export const ChatService = {
     return apiClient.patch(`/chat/messages/${messageId}/read`);
   },
 
-  async createQuestion(data: CreateQuestionDto): Promise<ApiResponse<Question>> {
+  async createQuestion(
+    data: CreateQuestionDto
+  ): Promise<ApiResponse<Question>> {
     return apiClient.post<ApiResponse<Question>>("/chat/questions", data);
+  },
+
+  async getQuestions(): Promise<PaginatedResponse<Question>> {
+    return apiClient.get<PaginatedResponse<Question>>(`/chat/questions`, {
+      headers: {
+        Authorization: `Bearer ${tokenMethod.get()?.accessToken}`,
+      },
+    });
   },
 
   async getQuestionById(questionId: string): Promise<Question> {
     try {
-      console.log(`[ChatService] Attempting to fetch question with ID: ${questionId}`);
-      const res = await apiClient.get<Question>(`/chat/questions/${questionId}`);
-      console.log(`[ChatService] Successfully fetched question ${questionId}:`, res);
+      console.log(
+        `[ChatService] Attempting to fetch question with ID: ${questionId}`
+      );
+      const res = await apiClient.get<Question>(
+        `/chat/questions/${questionId}`
+      );
+      console.log(
+        `[ChatService] Successfully fetched question ${questionId}:`,
+        res
+      );
       return res;
     } catch (error: any) {
-      console.error(`[ChatService] Error fetching question ${questionId}:`, error);
+      console.error(
+        `[ChatService] Error fetching question ${questionId}:`,
+        error
+      );
       if (error.response) {
-        console.error("[ChatService] API Error Response Data:", error.response.data);
-        console.error("[ChatService] API Error Response Status:", error.response.status);
+        console.error(
+          "[ChatService] API Error Response Data:",
+          error.response.data
+        );
+        console.error(
+          "[ChatService] API Error Response Status:",
+          error.response.status
+        );
       }
       throw error;
     }
   },
 
   async getChatRoomByAppointmentId(appointmentId: string): Promise<ChatRoom> {
-    const res = await apiClient.get<ChatRoom>(`/appointments/${appointmentId}/chat-room`);
+    const res = await apiClient.get<ChatRoom>(
+      `/appointments/${appointmentId}/chat-room`
+    );
     return res;
   },
 
-  // This is a new method to get a Question by appointmentId, which might be what getChatRoomByAppointmentId does.
-  // We add this for clarity and to handle cases where a Question object is expected.
-  async getQuestionByAppointmentId(appointmentId: string): Promise<Question> {
-    // Assuming the /chat-room endpoint returns a Question object or something compatible.
-    // If the backend returns a different structure, this will need adjustment.
-    return apiClient.get<Question>(`/appointments/${appointmentId}/chat-room`);
-  },
-
-  onNewMessage(
-    callback: (message: ChatMessage) => void
-  ) {
+  onNewMessage(callback: (message: ChatMessage) => void) {
     const socket = getSocket();
     const handler = (data: { data: ChatMessage }) => {
       callback(data.data);
@@ -336,7 +369,12 @@ export const ChatService = {
   },
 
   onMessageRead(
-    callback: (data: { messageId: string; userId: string; appointmentId?: string; questionId?: string }) => void
+    callback: (data: {
+      messageId: string;
+      userId: string;
+      appointmentId?: string;
+      questionId?: string;
+    }) => void
   ) {
     const socket = getSocket();
     const handler = (data: {
