@@ -1,5 +1,3 @@
-
-import { Category } from '@/services/category.service';
 import { apiClient } from "./api"; // Changed to apiClient
 import { API_ENDPOINTS } from "@/config/api";
 import { UploadImageResponse, CreateServiceImageDto, Image } from "@/types/api";
@@ -8,8 +6,6 @@ export interface Service {
   id: string;
   name: string;
   description: string;
-  htmlDescription?: string;
-  price: number | null;
   htmlDescription?: string;
   price: number | null;
   duration: number;
@@ -25,7 +21,6 @@ export interface Service {
   isActive?: boolean;
   createdAt: string; // Add createdAt
   updatedAt: string; // Add updatedAt
-  category : Category;
 }
 
 export interface GetServicesQuery {
@@ -89,7 +84,6 @@ export const APIService = {
       const response = await apiClient.get<Service>(API_ENDPOINTS.SERVICES.BY_ID(id));
       return response;
     } catch (error) {
-      console.error("[APIService] Error in getById:", error);
       console.error("[APIService] Error in getById:", error);
       throw error;
     }

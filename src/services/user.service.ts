@@ -15,6 +15,7 @@ export interface User {
   profilePicture?: string;
   role: Role;
   isActive: boolean;
+  healthDataConsent?: boolean;
   createdAt: string;
   updatedAt: string;
   roleId?: string; // Add roleId here for convenience in forms
@@ -50,7 +51,7 @@ export interface CreateUserPayload {
   phone?: string;
   address?: string;
   gender?: string;
-  role: string;
+  roleId: string; // Changed 'role' to 'roleId'
 }
 
 export interface UpdateUserPayload {

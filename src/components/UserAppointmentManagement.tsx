@@ -222,7 +222,6 @@ const CancelDialog: React.FC<CancelDialogProps> = ({
           <DialogTitle>Hủy lịch hẹn</DialogTitle>
           <DialogDescription>
             Bạn có chắc chắn muốn hủy lịch hẹn với {appointment.consultant?.firstName} {appointment.consultant?.lastName}?
-            Bạn có chắc chắn muốn hủy lịch hẹn với {appointment.consultant?.firstName} {appointment.consultant?.lastName}?
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -275,7 +274,8 @@ const AppointmentCard: React.FC<{
 
   const canCancel = AppointmentService.canCancel(appointment.status);
   const isPastAppointment = AppointmentService.isPastAppointment(appointment.appointmentDate);
-  const isCompletedAndPast = appointment.status === "completed" && isPastAppointment;
+  // A "checked-in" appointment is eligible for feedback immediately.
+  const isEligibleForFeedback = (appointment.status === "completed" && isPastAppointment) || appointment.status === "checked_in";
   const hasFeedback = !!appointment.feedbackId;
 
   const appointmentDateObj = new Date(appointment.appointmentDate);
@@ -288,9 +288,7 @@ const AppointmentCard: React.FC<{
           <div className="flex items-center space-x-3">
             <Avatar className="w-12 h-12">
               <AvatarImage src={appointment.consultant?.profilePicture} alt={`${appointment.consultant?.firstName} ${appointment.consultant?.lastName}`} />
-              <AvatarImage src={appointment.consultant?.profilePicture} alt={`${appointment.consultant?.firstName} ${appointment.consultant?.lastName}`} />
               <AvatarFallback>
-                {`${appointment.consultant?.firstName?.[0] || ''}${appointment.consultant?.lastName?.[0] || ''}`}
                 {`${appointment.consultant?.firstName?.[0] || ''}${appointment.consultant?.lastName?.[0] || ''}`}
               </AvatarFallback>
             </Avatar>
@@ -298,16 +296,13 @@ const AppointmentCard: React.FC<{
               <h3 className="font-semibold text-lg">
                 {appointment.consultant ? `${appointment.consultant.firstName} ${appointment.consultant.lastName}` : "N/A"}
               </h3>
-              <p className="text-sm text-muted-foreground">{appointment.consultant?.qualification || "N/A"}</p>
-              <h3 className="font-semibold text-lg">
-                {appointment.consultant ? `${appointment.consultant.firstName} ${appointment.consultant.lastName}` : "N/A"}
-              </h3>
-              <p className="text-sm text-muted-foreground">{appointment.consultant?.qualification || "N/A"}</p>
-              <div className="flex items-center gap-1 mt-1">
-                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                <span className="text-sm">{appointment.consultant?.rating ? `${appointment.consultant.rating}/5` : "N/A"}</span>
-                <span className="text-sm">{appointment.consultant?.rating ? `${appointment.consultant.rating}/5` : "N/A"}</span>
-              </div>
+              <p className="text-sm text-muted-foreground">{appointment.consultant?.qualification || "Chưa có bằng cấp"}</p>
+              {appointment.consultant?.rating && appointment.consultant.rating > 0 && (
+                <div className="flex items-center gap-1 mt-1">
+                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                  <span className="text-sm">{`${appointment.consultant.rating.toFixed(1)}/5`}</span>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -324,13 +319,11 @@ const AppointmentCard: React.FC<{
             <CalendarIcon className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm">
               {isDateValid ? format(appointmentDateObj, "EEEE, dd/MM/yyyy", { locale: vi }) : "N/A"}
-              {isDateValid ? format(appointmentDateObj, "EEEE, dd/MM/yyyy", { locale: vi }) : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm">
-              {isDateValid ? format(appointmentDateObj, "HH:mm") : "N/A"}
               {isDateValid ? format(appointmentDateObj, "HH:mm") : "N/A"}
             </span>
           </div>
@@ -421,7 +414,7 @@ const AppointmentCard: React.FC<{
             </Button>
           )}
 
-          {isCompletedAndPast && !hasFeedback && (
+          {isEligibleForFeedback && !hasFeedback && (
             <Button
               variant="default"
               size="sm"
@@ -433,7 +426,7 @@ const AppointmentCard: React.FC<{
             </Button>
           )}
 
-          {isCompletedAndPast && hasFeedback && (
+          {isEligibleForFeedback && hasFeedback && (
             <Button
               variant="outline"
               size="sm"
@@ -491,6 +484,8 @@ const UserAppointmentManagement: React.FC = () => {
         return <Clock className="w-4 h-4" />;
       case "confirmed":
         return <CheckCircle className="w-4 h-4" />;
+      case "checked_in":
+        return <CheckCircle className="w-4 h-4" />;
       case "cancelled":
         return <XCircle className="w-4 h-4" />;
       case "completed":
@@ -511,6 +506,8 @@ const UserAppointmentManagement: React.FC = () => {
       case "cancelled":
         return "bg-red-100 text-red-800";
       case "completed":
+        return "bg-green-100 text-green-800";
+      case "checked_in":
         return "bg-green-100 text-green-800";
       case "no_show":
         return "bg-gray-100 text-gray-800";
@@ -694,7 +691,6 @@ const UserAppointmentManagement: React.FC = () => {
       toast({
         title: "Lỗi",
         description: `Không thể tải danh sách lịch hẹn. Vui lòng thử lại. Lỗi: ${error.message || error}`,
-        description: `Không thể tải danh sách lịch hẹn. Vui lòng thử lại. Lỗi: ${error.message || error}`,
         variant: "destructive",
       });
     } finally {
@@ -707,10 +703,10 @@ const UserAppointmentManagement: React.FC = () => {
     setIsLoadingChat(true);
     try {
       // Check if a chat room already exists for this appointment
-      const existingQuestion = await ChatService.getQuestionByAppointmentId(appointment.id);
-      if (existingQuestion && existingQuestion.id) {
+      const existingChatRoom = await ChatService.getChatRoomByAppointmentId(appointment.id);
+      if (existingChatRoom && existingChatRoom.id) {
         // If it exists, navigate to the chat room
-        router.push(`/chat/${existingQuestion.id}`);
+        router.push(`/chat/${existingChatRoom.id}`);
       } else {
         // This case should ideally not be reached if the API returns a proper 404
         setAppointmentForChat(appointment);
@@ -783,7 +779,6 @@ const UserAppointmentManagement: React.FC = () => {
       setIsCancelDialogOpen(false);
       setSelectedAppointment(null);
     } catch (error: any) {
-    } catch (error: any) {
       console.error("Error cancelling appointment:", error);
       toast({
         title: "Lỗi",
@@ -818,6 +813,8 @@ const UserAppointmentManagement: React.FC = () => {
         comment,
         isAnonymous,
       };
+
+      console.log("Submitting feedback with data:", feedbackData); // Log the data being sent
 
       const response = await FeedbackService.createFeedback(feedbackData);
       
@@ -862,13 +859,13 @@ const UserAppointmentManagement: React.FC = () => {
   const upcomingAppointments = appointments.filter(apt => 
     !AppointmentService.isPastAppointment(apt.appointmentDate) && 
     ["pending", "confirmed", "scheduled"].includes(apt.status)
-    ["pending", "confirmed", "scheduled"].includes(apt.status)
   );
 
-  const pastAppointments = appointments.filter(apt => 
-    AppointmentService.isPastAppointment(apt.appointmentDate) || 
-    ["completed", "cancelled", "no_show"].includes(apt.status)
-  );
+  const pastAppointments = appointments.filter(apt => {
+    const isPast = AppointmentService.isPastAppointment(apt.appointmentDate);
+    const isFinishedStatus = ["completed", "cancelled", "no_show", "checked_in"].includes(apt.status);
+    return isPast || isFinishedStatus;
+  });
 
   // Pagination handlers
   const handlePageChange = (page: number) => {
@@ -1117,9 +1114,7 @@ const UserAppointmentManagement: React.FC = () => {
               <div className="flex items-center gap-4">
                 <Avatar className="w-16 h-16">
                   <AvatarImage src={selectedAppointment.consultant?.profilePicture} alt={`${selectedAppointment.consultant?.firstName} ${selectedAppointment.consultant?.lastName}`} />
-                  <AvatarImage src={selectedAppointment.consultant?.profilePicture} alt={`${selectedAppointment.consultant?.firstName} ${selectedAppointment.consultant?.lastName}`} />
                   <AvatarFallback>
-                    {`${selectedAppointment.consultant?.firstName?.[0] || ''}${selectedAppointment.consultant?.lastName?.[0] || ''}`}
                     {`${selectedAppointment.consultant?.firstName?.[0] || ''}${selectedAppointment.consultant?.lastName?.[0] || ''}`}
                   </AvatarFallback>
                 </Avatar>
@@ -1128,14 +1123,9 @@ const UserAppointmentManagement: React.FC = () => {
                     {selectedAppointment.consultant ? `${selectedAppointment.consultant.firstName} ${selectedAppointment.consultant.lastName}` : "N/A"}
                   </h3>
                   <p className="text-muted-foreground">{selectedAppointment.consultant?.qualification || "N/A"}</p>
-                  <h3 className="text-xl font-semibold">
-                    {selectedAppointment.consultant ? `${selectedAppointment.consultant.firstName} ${selectedAppointment.consultant.lastName}` : "N/A"}
-                  </h3>
-                  <p className="text-muted-foreground">{selectedAppointment.consultant?.qualification || "N/A"}</p>
                   <div className="flex items-center gap-4 mt-2">
                     <div className="flex items-center gap-1">
                       <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                      <span className="text-sm">{selectedAppointment.consultant?.rating ? `${selectedAppointment.consultant.rating}/5` : "N/A"}</span>
                       <span className="text-sm">{selectedAppointment.consultant?.rating ? `${selectedAppointment.consultant.rating}/5` : "N/A"}</span>
                     </div>
                     <Badge className={getStatusColor(selectedAppointment.status)}>
@@ -1156,19 +1146,11 @@ const UserAppointmentManagement: React.FC = () => {
                       const dateObj = new Date(selectedAppointment.appointmentDate);
                       return !isNaN(dateObj.getTime()) ? format(dateObj, "EEEE, dd/MM/yyyy", { locale: vi }) : "N/A";
                     })()}
-                    {(() => {
-                      const dateObj = new Date(selectedAppointment.appointmentDate);
-                      return !isNaN(dateObj.getTime()) ? format(dateObj, "EEEE, dd/MM/yyyy", { locale: vi }) : "N/A";
-                    })()}
                   </p>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Giờ hẹn:</Label>
                   <p className="text-sm">
-                    {(() => {
-                      const dateObj = new Date(selectedAppointment.appointmentDate);
-                      return !isNaN(dateObj.getTime()) ? format(dateObj, "HH:mm") : "N/A";
-                    })()}
                     {(() => {
                       const dateObj = new Date(selectedAppointment.appointmentDate);
                       return !isNaN(dateObj.getTime()) ? format(dateObj, "HH:mm") : "N/A";

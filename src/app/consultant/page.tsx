@@ -24,11 +24,13 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay } f
 import { vi } from "date-fns/locale"; // Import Vietnamese locale
 import { UpdateAppointmentStatusDialog } from "@/components/UpdateAppointmentStatusDialog";
 import { AppointmentDetailsDialog } from "@/components/AppointmentDetailsDialog";
+import { UpdateMeetingLinkDialog } from "@/components/UpdateMeetingLinkDialog"; // Import new dialog
 import { translatedAppointmentStatus } from "@/lib/translations";
 import { API_FEATURES } from "@/config/api";
 import { Pagination } from "@/components/ui/pagination";
 import { PaginationInfo } from "@/components/ui/pagination-info";
 import { ChatService, ChatRoom } from "@/services/chat.service"; // Import ChatService and ChatRoom
+import { AppointmentService } from "@/services/appointment.service"; // Import AppointmentService
 import { Appointment } from "@/types/api.d"; // Import global Appointment type
 import { User } from "@/services/user.service"; // Import User type
 import { ConsultantProfile } from "@/services/consultant.service"; // Import ConsultantProfile type
@@ -357,26 +359,37 @@ function ConsultantDashboard() {
                                 }
                               }}
                             />
+                            <UpdateMeetingLinkDialog
+                              appointmentId={appointment.id}
+                              currentMeetingLink={appointment.meetingLink}
+                              onMeetingLinkUpdate={() => {
+                                if (user) {
+                                  fetchAppointments(user.id);
+                                }
+                              }}
+                            />
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={async () => {
                                 try {
-                                  const chatRoom: ChatRoom = await ChatService.getChatRoomByAppointmentId(appointment.id);
-
-                                  // If appointment has no notes or empty notes, send a default message
-                                  if (!appointment.service?.name || appointment.service.name.trim() === "") {
-                                    await ChatService.sendAppointmentMessage(chatRoom.id, { content: "Chào bạn" }); // Changed to sendAppointmentMessage
+                                  const chatRoomResponse = await AppointmentService.getAppointmentChatRoom(appointment.id);
+                                  if (chatRoomResponse && chatRoomResponse.id) { // Assuming the response has an 'id' field for questionId
+                                    router.push(`/chat/${chatRoomResponse.id}`);
+                                  } else {
+                                    toast({
+                                      title: "Thông báo",
+                                      description: "Khách hàng chưa tạo phòng chat cho cuộc hẹn này.",
+                                      variant: "default",
+                                    });
                                   }
-
-                                  router.push(`/chat/${chatRoom.id}`);
                                 } catch (err: any) {
+                                  console.error("Error getting chat room for appointment:", err);
                                   toast({
                                     title: "Lỗi",
                                     description: `Không thể vào phòng chat: ${err.message || "Đã xảy ra lỗi không xác định."}`,
                                     variant: "destructive",
                                   });
-                                  console.error("Error getting chat room or sending initial message:", err);
                                 }
                               }}
                             >
@@ -491,6 +504,7 @@ function ConsultantDashboard() {
           onSave={handleSaveProfile}
         />
       )}
+
     </div>
   );
 }

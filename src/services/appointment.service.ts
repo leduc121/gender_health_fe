@@ -1,3 +1,4 @@
+import { apiClient } from "./api";
 import { API_ENDPOINTS } from "@/config/api";
 import { Appointment, PaginationResponse } from "@/types/api.d";
 
@@ -53,23 +54,11 @@ export const AppointmentService = {
       console.log("[AppointmentService] Raw API Response for current user appointments:", response);
       return response; // The apiClient already returns the expected structure
     } catch (error: any) {
-      console.error(
-        "[AppointmentService] Error fetching user appointments:",
-        error
-      );
+      console.error("[AppointmentService] Error fetching user appointments:", error);
       if (error.response) {
-        console.error(
-          "[AppointmentService] Error response data:",
-          error.response.data
-        );
-        console.error(
-          "[AppointmentService] Error response status:",
-          error.response.status
-        );
-        console.error(
-          "[AppointmentService] Error response headers:",
-          error.response.headers
-        );
+        console.error("[AppointmentService] Error response data:", error.response.data);
+        console.error("[AppointmentService] Error response status:", error.response.status);
+        console.error("[AppointmentService] Error response headers:", error.response.headers);
       } else if (error.request) {
         console.error("[AppointmentService] Error request:", error.request);
       } else {
@@ -104,9 +93,7 @@ export const AppointmentService = {
   },
 
   // Tạo appointment mới
-  createAppointment: async (
-    data: CreateAppointmentRequest
-  ): Promise<Appointment> => {
+  createAppointment: async (data: CreateAppointmentRequest): Promise<Appointment> => {
     try {
       console.log("[AppointmentService] Creating appointment with data:", data);
       const accessToken = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
@@ -122,18 +109,9 @@ export const AppointmentService = {
     } catch (error: any) {
       console.error("[AppointmentService] Error creating appointment:", error);
       if (error.response) {
-        console.error(
-          "[AppointmentService] Error response data:",
-          error.response.data
-        );
-        console.error(
-          "[AppointmentService] Error response status:",
-          error.response.status
-        );
-        console.error(
-          "[AppointmentService] Error response headers:",
-          error.response.headers
-        );
+        console.error("[AppointmentService] Error response data:", error.response.data);
+        console.error("[AppointmentService] Error response status:", error.response.status);
+        console.error("[AppointmentService] Error response headers:", error.response.headers);
       } else if (error.request) {
         console.error("[AppointmentService] Error request:", error.request);
       } else {
@@ -173,16 +151,28 @@ export const AppointmentService = {
     }
   },
 
+  // Cập nhật link cuộc họp
+  updateMeetingLink: async (id: string, meetingLink: string): Promise<Appointment> => {
+    try {
+      console.log("[AppointmentService] Updating meeting link:", id, meetingLink);
+      const response = await apiClient.patch<Appointment>(
+        API_ENDPOINTS.APPOINTMENTS.UPDATE_MEETING_LINK(id),
+        { meetingLink }
+      );
+      return response;
+    } catch (error) {
+      console.error("[AppointmentService] Error updating meeting link:", error);
+      throw error;
+    }
+  },
+
   // Hủy appointment
   cancelAppointment: async (id: string, data: CancelAppointmentDto): Promise<void> => {
     try {
       console.log("[AppointmentService] Cancelling appointment:", id, data);
       await apiClient.patch<void>(API_ENDPOINTS.APPOINTMENTS.CANCEL(id), data);
     } catch (error) {
-      console.error(
-        "[AppointmentService] Error cancelling appointment:",
-        error
-      );
+      console.error("[AppointmentService] Error cancelling appointment:", error);
       throw error;
     }
   },
@@ -227,5 +217,17 @@ export const AppointmentService = {
 
   isPastAppointment: (appointmentDate: string): boolean => {
     return new Date(appointmentDate) < new Date();
+  },
+
+  // Lấy thống kê cuộc hẹn cho dashboard
+  getAppointmentStatistics: async (): Promise<{ totalAppointmentsToday: number; completedAppointmentsToday: number }> => {
+    try {
+      console.log("[AppointmentService] Fetching appointment statistics...");
+      const response = await apiClient.get<{ totalAppointmentsToday: number; completedAppointmentsToday: number }>(API_ENDPOINTS.APPOINTMENTS.STATISTICS.DASHBOARD);
+      return response;
+    } catch (error) {
+      console.error("[AppointmentService] Error fetching appointment statistics:", error);
+      throw error;
+    }
   },
 };
