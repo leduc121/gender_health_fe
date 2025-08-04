@@ -5,7 +5,7 @@ const nextConfig = {
       {
         // Remove the /api prefix when forwarding to the backend
         source: "/api/:path*",
-        destination: "https://gender-healthcare.org/:path*",
+        destination: "https://genderhealthcare.uk/:path*",
       },
     ];
   },
@@ -34,7 +34,7 @@ const nextConfig = {
     // Cải thiện cấu hình images để tránh lỗi 404
     domains: [
       "d3fdwgxfvcmuj8.cloudfront.net",
-      "d4vjsyqlv6u6j.cloudfront.net", 
+      "d4vjsyqlv6u6j.cloudfront.net",
       "gender-healthcare.org",
       "localhost",
       // thêm các domain khác nếu cần
@@ -45,7 +45,7 @@ const nextConfig = {
     // Disable tối ưu hóa image nếu gặp vấn đề
     unoptimized: false,
     // Timeout cho việc load image
-    loader: 'default',
+    loader: "default",
     // Thêm error handling
     minimumCacheTTL: 60,
   },

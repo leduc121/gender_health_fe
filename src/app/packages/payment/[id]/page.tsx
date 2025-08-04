@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function PackagePaymentPage() {
   const router = useRouter();
@@ -25,7 +24,7 @@ export default function PackagePaymentPage() {
     const createPayment = async () => {
       try {
         const res = await fetch(
-          "https://gender-healthcare.org/payments/packages",
+          "https://genderhealthcare.uk/payments/packages",
           {
             method: "POST",
             headers: {
