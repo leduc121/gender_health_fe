@@ -35,7 +35,7 @@ export default function STITestingPage() {
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState<string>("");
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState<string | undefined>(undefined);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingResult, setBookingResult] = useState<Appointment[] | null>(
     null
@@ -229,7 +229,7 @@ export default function STITestingPage() {
           stiServiceId: serviceId,
           sampleCollectionDate: sampleCollectionDateTime.toISOString(),
           sampleCollectionLocation: "office",
-          notes: notes,
+          notes: notes ? notes : undefined,
           consultantId: selectedSlot.consultant?.id, // Pass consultantId from selected slot
         };
         const response = await STITestingService.createStiAppointment(payload);
