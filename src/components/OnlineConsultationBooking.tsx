@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useConsultationBooking } from "@/hooks/use-consultation-booking";
+import { formatCurrency } from "@/lib/utils";
 import {
   ConsultantProfile,
   ConsultantService,
@@ -462,7 +463,7 @@ const OnlineConsultationBooking: React.FC = () => {
 
                 <div className="text-center pt-2">
                   <div className="text-lg font-semibold text-primary">
-                    {consultant.consultationFee.toLocaleString()}đ
+                    {formatCurrency(consultant.consultationFee) || 0}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     / buổi tư vấn

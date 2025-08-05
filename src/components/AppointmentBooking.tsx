@@ -46,6 +46,7 @@ import React, { useEffect, useState } from "react";
 
 // Types
 import { ConsultantAvailability } from "@/services/consultant.service";
+import { formatCurrency } from "@/lib/utils";
 
 interface Appointment {
   id: string;
@@ -361,7 +362,7 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                           </p>
                           <p className="text-sm mb-2">
                             Phí tư vấn:{" "}
-                            {consultant.consultationFee.toLocaleString("vi-VN")}
+                            {formatCurrency(consultant.consultationFee) || 0}
                             đ
                           </p>
                         </CardContent>
