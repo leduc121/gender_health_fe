@@ -376,7 +376,7 @@ function AppointmentsContent() {
       bookedAppointmentId
     );
     if (bookedAppointmentId) {
-      router.push(`/appointments/payment?appointmentId=${bookedAppointmentId}`);
+      router.push(`/appointments/payment/${bookedAppointmentId}`);
     } else {
       toast({
         title: "Lỗi",
