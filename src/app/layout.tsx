@@ -1,13 +1,13 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "@/components/ui/toaster";
 import ClientAuthProvider from "@/components/ClientAuthProvider";
 import Header from "@/components/Header";
-import { GoogleOAuthProvider } from "@react-oauth/google";
-import Link from "next/link";
 import { QueryProvider } from "@/components/QueryProvider";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/toaster";
+import { GoogleOAuthProvider } from "@react-oauth/google";
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import Link from "next/link";
+import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -44,7 +44,6 @@ export default function RootLayout({
                 <Toaster />
                 {/* Floating Chat Bubble */}
 
-                
                 <Link
                   href="/chat"
                   style={{
@@ -59,16 +58,14 @@ export default function RootLayout({
                     height: 56,
                     display: "flex",
                     alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                  fontSize: 28,
-                  cursor: "pointer",
-                  transition: "background 0.2s",
-                }}
+                    justifyContent: "center",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                    fontSize: 28,
+                    cursor: "pointer",
+                    transition: "background 0.2s",
+                  }}
                   title="Chat tư vấn"
-                >
-                  
-                </Link>
+                ></Link>
               </QueryProvider>
             </ClientAuthProvider>
           </ThemeProvider>

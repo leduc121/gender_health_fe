@@ -1,6 +1,6 @@
-import { apiClient } from "./api";
 import { API_ENDPOINTS } from "@/config/api";
 import { ApiResponse } from "@/types/api.d";
+import { apiClient } from "./api";
 
 export interface CycleData {
   id: string;
@@ -28,19 +28,29 @@ export interface Symptom {
 }
 
 export interface Prediction {
+  id?: string;
   predictedCycleStart?: string;
   predictedCycleEnd?: string;
   predictedOvulationDate?: string;
   predictedFertileStart?: string;
   predictedFertileEnd?: string;
-  accuracy?: number;
+  predictionAccuracy?: number | null;
+  notificationSent?: boolean;
+  notificationSentAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
   data?: {
+    id?: string;
     predictedCycleStart?: string;
     predictedCycleEnd?: string;
     predictedOvulationDate?: string;
     predictedFertileStart?: string;
     predictedFertileEnd?: string;
-    accuracy?: number;
+    predictionAccuracy?: number | null;
+    notificationSent?: boolean;
+    notificationSentAt?: string | null;
+    createdAt?: string;
+    updatedAt?: string;
   };
 }
 
@@ -52,7 +62,7 @@ export interface ContraceptiveReminder {
   reminderTime: string; // HH:mm
   startDate: string; // YYYY-MM-DD
   endDate?: string; // YYYY-MM-DD
-  frequency: 'daily' | 'weekly' | 'monthly';
+  frequency: "daily" | "weekly" | "monthly";
   daysOfWeek?: number[]; // 0=Sunday, 1=Monday, ..., 6=Saturday
   reminderMessage?: string;
   createdAt: string;
@@ -64,7 +74,7 @@ export interface CreateContraceptiveReminderDto {
   reminderTime: string;
   startDate: string;
   endDate?: string;
-  frequency: 'daily' | 'weekly' | 'monthly';
+  frequency: "daily" | "weekly" | "monthly";
   daysOfWeek?: number[];
   reminderMessage?: string;
 }
@@ -74,11 +84,10 @@ export interface UpdateContraceptiveReminderDto {
   reminderTime?: string;
   startDate?: string;
   endDate?: string;
-  frequency?: 'daily' | 'weekly' | 'monthly';
+  frequency?: "daily" | "weekly" | "monthly";
   daysOfWeek?: number[];
   reminderMessage?: string;
 }
-
 
 export const MenstrualService = {
   // Quản lý chu kỳ
@@ -94,15 +103,22 @@ export const MenstrualService = {
   },
 
   async getAllCycles(): Promise<CycleData[]> {
-    const response = await apiClient.get<CycleData[]>(API_ENDPOINTS.CYCLES.BASE);
+    const response = await apiClient.get<CycleData[]>(
+      API_ENDPOINTS.CYCLES.BASE
+    );
     return response;
   },
 
-  async getCycle(id: string): Promise<ApiResponse<CycleData>> {
-    return (await apiClient.get(`${API_ENDPOINTS.CYCLES.BASE}/${id}`)) as ApiResponse<CycleData>;
+  async getCycle(id: string): Promise<CycleData> {
+    return (await apiClient.get(
+      `${API_ENDPOINTS.CYCLES.BASE}/${id}`
+    )) as CycleData;
   },
 
-  async updateCycle(id: string, data: Partial<CycleData>): Promise<ApiResponse<any>> {
+  async updateCycle(
+    id: string,
+    data: Partial<CycleData>
+  ): Promise<ApiResponse<any>> {
     return (await apiClient.patch(`${API_ENDPOINTS.CYCLES.BASE}/${id}`, {
       ...data,
       cycleStartDate: data.cycleStartDate
@@ -115,57 +131,95 @@ export const MenstrualService = {
   },
 
   async deleteCycle(id: string): Promise<ApiResponse<any>> {
-    return (await apiClient.delete(`${API_ENDPOINTS.CYCLES.BASE}/${id}`)) as ApiResponse<any>;
+    return (await apiClient.delete(
+      `${API_ENDPOINTS.CYCLES.BASE}/${id}`
+    )) as ApiResponse<any>;
   },
 
   // Quản lý triệu chứng
   async addSymptom(data: SymptomData): Promise<ApiResponse<any>> {
-    return (await apiClient.post(API_ENDPOINTS.CYCLES.SYMPTOMS, data)) as ApiResponse<any>;
+    return (await apiClient.post(
+      API_ENDPOINTS.CYCLES.SYMPTOMS,
+      data
+    )) as ApiResponse<any>;
   },
 
   async getAllSymptoms(): Promise<ApiResponse<Symptom[]>> {
-    return (await apiClient.get(API_ENDPOINTS.SYMPTOMS.BASE)) as ApiResponse<Symptom[]>;
+    return (await apiClient.get(API_ENDPOINTS.SYMPTOMS.BASE)) as ApiResponse<
+      Symptom[]
+    >;
   },
 
-  async getSymptomsByCycleId(cycleId: string): Promise<ApiResponse<SymptomData[]>> {
-    return (await apiClient.get(`${API_ENDPOINTS.CYCLES.SYMPTOMS}?cycleId=${cycleId}`)) as ApiResponse<SymptomData[]>;
+  async getSymptomsByCycleId(
+    cycleId: string
+  ): Promise<ApiResponse<SymptomData[]>> {
+    return (await apiClient.get(
+      `${API_ENDPOINTS.CYCLES.SYMPTOMS}?cycleId=${cycleId}`
+    )) as ApiResponse<SymptomData[]>;
   },
 
-  async updateSymptom(id: string, data: Partial<SymptomData>): Promise<ApiResponse<any>> {
-    return (await apiClient.patch(`${API_ENDPOINTS.CYCLES.SYMPTOMS}/${id}`, data)) as ApiResponse<any>;
+  async updateSymptom(
+    id: string,
+    data: Partial<SymptomData>
+  ): Promise<ApiResponse<any>> {
+    return (await apiClient.patch(
+      `${API_ENDPOINTS.CYCLES.SYMPTOMS}/${id}`,
+      data
+    )) as ApiResponse<any>;
   },
 
   async deleteSymptom(id: string): Promise<ApiResponse<any>> {
-    return (await apiClient.delete(`${API_ENDPOINTS.CYCLES.SYMPTOMS}/${id}`)) as ApiResponse<any>;
+    return (await apiClient.delete(
+      `${API_ENDPOINTS.CYCLES.SYMPTOMS}/${id}`
+    )) as ApiResponse<any>;
   },
 
   // Dự đoán chu kỳ
   async getPredictions(): Promise<Prediction> {
-    const res = await apiClient.get<Prediction>(API_ENDPOINTS.CYCLES.PREDICTIONS);
+    const res = await apiClient.get<Prediction>(
+      API_ENDPOINTS.CYCLES.PREDICTIONS
+    );
     return res;
   },
 
   // Quản lý nhắc nhở tránh thai
-  async createContraceptiveReminder(data: CreateContraceptiveReminderDto): Promise<ContraceptiveReminder> {
-    const response = await apiClient.post<ContraceptiveReminder>(API_ENDPOINTS.CONTRACEPTIVE_REMINDERS.BASE, data);
+  async createContraceptiveReminder(
+    data: CreateContraceptiveReminderDto
+  ): Promise<ContraceptiveReminder> {
+    const response = await apiClient.post<ContraceptiveReminder>(
+      API_ENDPOINTS.CONTRACEPTIVE_REMINDERS.BASE,
+      data
+    );
     return response;
   },
 
   async getAllContraceptiveReminders(): Promise<ContraceptiveReminder[]> {
-    const response = await apiClient.get<ContraceptiveReminder[]>(API_ENDPOINTS.CONTRACEPTIVE_REMINDERS.BASE);
+    const response = await apiClient.get<ContraceptiveReminder[]>(
+      API_ENDPOINTS.CONTRACEPTIVE_REMINDERS.BASE
+    );
     return response;
   },
 
   async getContraceptiveReminder(id: string): Promise<ContraceptiveReminder> {
-    return (await apiClient.get<ContraceptiveReminder>(API_ENDPOINTS.CONTRACEPTIVE_REMINDERS.BY_ID(id)));
+    return await apiClient.get<ContraceptiveReminder>(
+      API_ENDPOINTS.CONTRACEPTIVE_REMINDERS.BY_ID(id)
+    );
   },
 
-  async updateContraceptiveReminder(id: string, data: UpdateContraceptiveReminderDto): Promise<ContraceptiveReminder> {
-    return (await apiClient.put<ContraceptiveReminder>(API_ENDPOINTS.CONTRACEPTIVE_REMINDERS.BY_ID(id), data));
+  async updateContraceptiveReminder(
+    id: string,
+    data: UpdateContraceptiveReminderDto
+  ): Promise<ContraceptiveReminder> {
+    return await apiClient.put<ContraceptiveReminder>(
+      API_ENDPOINTS.CONTRACEPTIVE_REMINDERS.BY_ID(id),
+      data
+    );
   },
 
   async deleteContraceptiveReminder(id: string): Promise<any> {
-    return (await apiClient.delete(API_ENDPOINTS.CONTRACEPTIVE_REMINDERS.BY_ID(id)));
+    return await apiClient.delete(
+      API_ENDPOINTS.CONTRACEPTIVE_REMINDERS.BY_ID(id)
+    );
   },
 
   // Các hàm tiện ích

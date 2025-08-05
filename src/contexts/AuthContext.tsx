@@ -4,6 +4,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { API_ENDPOINTS } from "@/config/api";
 import { apiClient } from "@/services/api";
 import { User } from "@/services/user.service"; // Import User from user.service
+import tokenMethod from "@/utils/token";
 import { useRouter } from "next/navigation";
 import React, {
   createContext,
@@ -29,7 +30,7 @@ interface ApiError {
 
 interface RefreshTokenResponse {
   accessToken: string;
-  refreshToken: string;
+  newRefreshToken: string;
 }
 
 export interface RegisterDto {
@@ -59,7 +60,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAuthReady, setIsAuthReady] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -78,30 +78,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       checkAuth();
     } else {
       setIsLoading(false);
-      setIsAuthReady(true);
       console.log("[AuthContext] No access token found, not authenticated.");
     }
   }, []);
-
-  const refreshToken = async () => {
-    try {
-      const refreshToken = localStorage.getItem("refreshToken");
-      if (!refreshToken) throw new Error("No refresh token");
-      const response = await apiClient.post<RefreshTokenResponse>(
-        API_ENDPOINTS.AUTH.REFRESH_TOKEN,
-        { refreshToken }
-      );
-      localStorage.setItem("accessToken", response.accessToken);
-      localStorage.setItem("refreshToken", response.refreshToken);
-      // Cập nhật authorization header
-      apiClient.setDefaultHeaders({
-        Authorization: `Bearer ${response.accessToken}`,
-      });
-      return response;
-    } catch (error) {
-      throw error;
-    }
-  };
 
   const checkAuth = async () => {
     try {
@@ -121,41 +100,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error: any) {
       console.log("[AuthContext] Auth failed:", error);
-      // If unauthorized, try to refresh token or clear auth
-      if (error.status === 401) {
-        try {
-          console.log("[AuthContext] Trying to refresh token...");
-          await refreshToken();
-          const userData = await apiClient.get<User>(API_ENDPOINTS.AUTH.ME);
-          console.log("[AuthContext] Auth successful after refresh:", userData);
-          const userWithFullNameAfterRefresh = {
-            ...userData,
-            fullName:
-              `${userData.firstName || ""} ${userData.lastName || ""}`.trim(),
-          };
-          setUser(userWithFullNameAfterRefresh);
-          const accessToken = localStorage.getItem("accessToken");
-          if (accessToken) {
-            document.cookie = `auth-token=${accessToken}; path=/; max-age=86400`;
-          }
-        } catch (refreshError) {
-          console.error("[AuthContext] Refresh failed:", refreshError);
-          logoutUser(); // Clear user data and tokens
-        }
-      } else {
-        console.error("[AuthContext] Other auth error:", error);
-        logoutUser(); // Clear user data and tokens for other errors
-      }
     } finally {
       setIsLoading(false);
-      setIsAuthReady(true);
       console.log("[AuthContext] Auth ready");
     }
   };
 
   const login = async (email: string, password: string) => {
     try {
-      console.log("[AuthContext] Attempting login...");
       const response = await apiClient.post<any>(API_ENDPOINTS.AUTH.LOGIN, {
         email,
         password,
@@ -163,8 +115,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = response;
       if (data && data.accessToken) {
         localStorage.setItem("accessToken", data.accessToken);
-        localStorage.setItem("refreshToken", data.refreshToken);
         document.cookie = `auth-token=${data.accessToken}; path=/; max-age=86400`;
+        tokenMethod.set({
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+        });
         apiClient.setDefaultHeaders({
           Authorization: `Bearer ${data.accessToken}`,
         });
