@@ -23,7 +23,7 @@ export default function StiTestingPaymentPage() {
     const createPayment = async () => {
       try {
         const res = await fetch(
-          "https://gender-healthcare.org/payments/sti-test-processes", // Adjusted API endpoint
+          "https://genderhealthcare.uk/payments/sti-test-processes", // Adjusted API endpoint
           {
             method: "POST",
             headers: {

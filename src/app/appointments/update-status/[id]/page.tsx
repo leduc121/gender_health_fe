@@ -38,7 +38,7 @@ export default function UpdateAppointmentStatusPage() {
     setError("");
     try {
       const res = await fetch(
-        `https://gender-healthcare.org/appointments/${id}/status`,
+        `https://genderhealthcare.uk/appointments/${id}/status`,
         {
           method: "PATCH",
           headers: {

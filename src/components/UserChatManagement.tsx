@@ -1,57 +1,80 @@
 "use client";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { ChatService } from "@/services/chat.service";
-import { Question } from "@/types/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { ChatService, getSocket, resetSocket } from "@/services/chat.service";
+import { Question } from "@/types/api.d";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { Loader2 } from "lucide-react";
+import {
+  AlertCircle,
+  Loader2,
+  MessageCircle,
+  Plus,
+  Search,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
-const CreateQuestionDialog: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  onQuestionCreated: (questionId: string) => void;
-  isLoading: boolean;
-  setIsLoading: React.Dispatch<React.SetStateAction<boolean>>; // Add setIsLoading prop
-  router: any; // Add router prop
-}> = ({
-  isOpen,
-  onClose,
-  onQuestionCreated,
-  isLoading,
-  setIsLoading,
-  router,
-}) => {
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
+interface ChatQuestion extends Question {
+  lastMessage?: {
+    content: string;
+    createdAt: string;
+  };
+  unreadCount?: number;
+}
+
+const UserChatManagement: React.FC = () => {
+  const { user } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
+  const [questions, setQuestions] = useState<ChatQuestion[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isCreatingQuestion, setIsCreatingQuestion] = useState(false);
+  const [newQuestionTitle, setNewQuestionTitle] = useState("");
+  const [newQuestionContent, setNewQuestionContent] = useState("");
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
-  const handleCreate = async () => {
-    if (!title.trim() || !content.trim()) {
+  const fetchQuestions = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await ChatService.getQuestions({
+        search: searchTerm,
+        page: 1,
+        limit: 50,
+      });
+      setQuestions(response.data);
+    } catch (error) {
+      console.error("[UserChatManagement] Error fetching questions:", error);
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải danh sách chat. Vui lòng thử lại.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchTerm, toast]);
+
+  const createNewQuestion = async () => {
+    if (!newQuestionTitle.trim() || !newQuestionContent.trim()) {
       toast({
         title: "Lỗi",
         description: "Vui lòng nhập tiêu đề và nội dung câu hỏi.",
@@ -60,223 +83,378 @@ const CreateQuestionDialog: React.FC<{
       return;
     }
 
-    setIsLoading(true); // Set loading true at the start
+    setIsCreatingQuestion(true);
     try {
-      const response = await ChatService.createQuestion({ title, content });
-      const newQuestionId = response.data.id;
-
-      toast({
-        title: "Thành công",
-        description: "Câu hỏi của bạn đã được tạo.",
+      const response = await ChatService.createQuestion({
+        title: newQuestionTitle,
+        content: newQuestionContent,
       });
-      onClose();
-      setTitle("");
-      setContent("");
-      // Add a small delay before redirecting to allow the backend to process
-      setTimeout(() => {
-        onQuestionCreated(newQuestionId); // Pass the new question ID after closing dialog
-      }, 500); // 500ms delay
+
+      if (response.data) {
+        toast({
+          title: "Thành công",
+          description: "Câu hỏi đã được tạo thành công.",
+        });
+
+        // Reset form
+        setNewQuestionTitle("");
+        setNewQuestionContent("");
+
+        // Navigate to the new chat
+        router.push(
+          `/chat/${response.data.id}?title=${encodeURIComponent(response.data.title)}&content=${encodeURIComponent(response.data.content)}`
+        );
+      }
     } catch (error) {
-      console.error("Error creating question:", error);
+      console.error("[UserChatManagement] Error creating question:", error);
       toast({
         title: "Lỗi",
         description: "Không thể tạo câu hỏi. Vui lòng thử lại.",
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false); // Set loading false at the end
+      setIsCreatingQuestion(false);
     }
   };
 
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Tạo câu hỏi mới</DialogTitle>
-          <DialogDescription>
-            Đặt câu hỏi của bạn cho chuyên gia tư vấn.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Tiêu đề</Label>
-            <Input
-              id="title"
-              placeholder="Nhập tiêu đề câu hỏi của bạn"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              disabled={isLoading}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="content">Nội dung</Label>
-            <Textarea
-              id="content"
-              placeholder="Mô tả chi tiết câu hỏi của bạn"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="min-h-[120px]"
-              disabled={isLoading}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
-            Hủy
-          </Button>
-          <Button onClick={handleCreate} disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Đang tạo...
-              </>
-            ) : (
-              "Tạo câu hỏi"
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
+  const handleQuestionClick = (question: ChatQuestion) => {
+    router.push(`/chat/${question.id}`);
+  };
 
-const UserChatManagement: React.FC = () => {
-  const { toast } = useToast();
-  const router = useRouter();
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isCreateQuestionDialogOpen, setIsCreateQuestionDialogOpen] =
-    useState(false);
-  const [isCreatingQuestion, setIsCreatingQuestion] = useState(false); // This state will be passed to dialog
-
-  const fetchQuestions = async () => {
-    setIsLoading(true);
-    try {
-      const response = await ChatService.getQuestions();
-      setQuestions(response.data);
-    } catch (error) {
-      console.error("Error fetching chat questions:", error);
-      toast({
-        title: "Lỗi",
-        description: "Không thể tải danh sách câu hỏi. Vui lòng thử lại.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+  const getQuestionStatusBadge = (status: string) => {
+    switch (status) {
+      case "pending":
+        return <Badge variant="secondary">Chờ trả lời</Badge>;
+      case "answered":
+        return <Badge variant="default">Đã trả lời</Badge>;
+      case "closed":
+        return <Badge variant="destructive">Đã đóng</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
     }
+  };
+
+  const getUnreadBadge = (unreadCount: number) => {
+    if (unreadCount > 0) {
+      return (
+        <Badge variant="destructive" className="ml-2">
+          {unreadCount}
+        </Badge>
+      );
+    }
+    return null;
   };
 
   useEffect(() => {
     fetchQuestions();
-  }, []);
+  }, [fetchQuestions]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-800";
-      case "answered":
-        return "bg-green-100 text-green-800";
-      case "closed":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
+  useEffect(() => {
+    // Initialize WebSocket connection for real-time updates
+    const socket = getSocket();
 
-  const handleEnterChat = (questionId: string) => {
-    router.push(`/chat/${questionId}`);
-  };
+    const handleConnect = () => {
+      console.log("[UserChatManagement] Socket connected");
+      setSocketConnected(true);
+      setConnectionError(null);
+    };
+
+    const handleDisconnect = () => {
+      console.log("[UserChatManagement] Socket disconnected");
+      setSocketConnected(false);
+      setConnectionError("Mất kết nối với máy chủ");
+    };
+
+    const handleConnectError = (error: any) => {
+      console.error("[UserChatManagement] Socket connection error:", error);
+      setSocketConnected(false);
+
+      const errorMessage = error?.message || error.toString();
+      if (
+        errorMessage.includes("Authentication") ||
+        errorMessage.includes("Unauthorized")
+      ) {
+        setConnectionError("Phiên đăng nhập đã hết hạn");
+        setTimeout(() => {
+          window.location.href = "/auth/login";
+        }, 3000);
+      } else {
+        setConnectionError("Không thể kết nối đến máy chủ");
+      }
+    };
+
+    socket.on("connect", handleConnect);
+    socket.on("disconnect", handleDisconnect);
+    socket.on("connect_error", handleConnectError);
+
+    // Listen for new messages to update unread counts
+    const cleanupNewMessage = ChatService.onNewMessage((message) => {
+      setQuestions((prevQuestions) =>
+        prevQuestions.map((question) => {
+          if (question.id === message.questionId) {
+            return {
+              ...question,
+              lastMessage: {
+                content: message.content,
+                createdAt: message.createdAt,
+              },
+              unreadCount:
+                (question.unreadCount || 0) +
+                (message.senderId !== user?.id ? 1 : 0),
+            };
+          }
+          return question;
+        })
+      );
+    });
+
+    return () => {
+      socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
+      socket.off("connect_error", handleConnectError);
+      cleanupNewMessage();
+    };
+  }, [user?.id]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Hộp thư tư vấn</h1>
-        <Button onClick={() => setIsCreateQuestionDialogOpen(true)}>
-          Tạo câu hỏi mới
-        </Button>
-      </div>
-
+    <div className="container mx-auto p-4 max-w-4xl">
       <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex items-center justify-center p-8">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-2xl flex items-center gap-2">
+              <MessageCircle className="h-6 w-6" />
+              Quản lý chat
+              <Badge variant={socketConnected ? "default" : "destructive"}>
+                {socketConnected ? "Đang kết nối" : "Mất kết nối"}
+              </Badge>
+            </CardTitle>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Tạo câu hỏi mới
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Tạo câu hỏi mới</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="title">Tiêu đề câu hỏi</Label>
+                    <Input
+                      id="title"
+                      value={newQuestionTitle}
+                      onChange={(e) => setNewQuestionTitle(e.target.value)}
+                      placeholder="Nhập tiêu đề câu hỏi..."
+                      disabled={isCreatingQuestion}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="content">Nội dung câu hỏi</Label>
+                    <Textarea
+                      id="content"
+                      value={newQuestionContent}
+                      onChange={(e) => setNewQuestionContent(e.target.value)}
+                      placeholder="Mô tả chi tiết câu hỏi của bạn..."
+                      rows={4}
+                      disabled={isCreatingQuestion}
+                    />
+                  </div>
+                  <Button
+                    onClick={createNewQuestion}
+                    disabled={
+                      isCreatingQuestion ||
+                      !newQuestionTitle.trim() ||
+                      !newQuestionContent.trim()
+                    }
+                    className="w-full"
+                  >
+                    {isCreatingQuestion ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Đang tạo...
+                      </>
+                    ) : (
+                      "Tạo câu hỏi"
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+
+        {connectionError && (
+          <Alert className="mx-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="flex items-center justify-between">
+              <span>{connectionError}</span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  resetSocket();
+                  window.location.reload();
+                }}
+                className="ml-4"
+              >
+                Thử lại
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <CardContent>
+          <div className="mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Tìm kiếm câu hỏi..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
             </div>
-          ) : questions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
+          </div>
+
+          {questions.length === 0 ? (
+            <div className="text-center py-8">
+              <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">
                 Chưa có câu hỏi nào
               </h3>
-              <p className="text-muted-foreground text-center mb-4">
-                Bạn chưa có câu hỏi tư vấn nào. Hãy tạo một câu hỏi mới!
+              <p className="text-muted-foreground mb-4">
+                Bạn chưa có câu hỏi nào. Hãy tạo câu hỏi đầu tiên để bắt đầu
+                chat.
               </p>
-              <Button onClick={() => setIsCreateQuestionDialogOpen(true)}>
-                Tạo câu hỏi mới
-              </Button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Tạo câu hỏi đầu tiên
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Tạo câu hỏi mới</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="title">Tiêu đề câu hỏi</Label>
+                      <Input
+                        id="title"
+                        value={newQuestionTitle}
+                        onChange={(e) => setNewQuestionTitle(e.target.value)}
+                        placeholder="Nhập tiêu đề câu hỏi..."
+                        disabled={isCreatingQuestion}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="content">Nội dung câu hỏi</Label>
+                      <Textarea
+                        id="content"
+                        value={newQuestionContent}
+                        onChange={(e) => setNewQuestionContent(e.target.value)}
+                        placeholder="Mô tả chi tiết câu hỏi của bạn..."
+                        rows={4}
+                        disabled={isCreatingQuestion}
+                      />
+                    </div>
+                    <Button
+                      onClick={createNewQuestion}
+                      disabled={
+                        isCreatingQuestion ||
+                        !newQuestionTitle.trim() ||
+                        !newQuestionContent.trim()
+                      }
+                      className="w-full"
+                    >
+                      {isCreatingQuestion ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Đang tạo...
+                        </>
+                      ) : (
+                        "Tạo câu hỏi"
+                      )}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tiêu đề</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead>Ngày tạo</TableHead>
-                  <TableHead className="text-right">Hành động</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {questions.map((question) => (
-                  <TableRow key={question.id}>
-                    <TableCell className="font-medium">
-                      {question.title}
-                      {question.unreadCount && question.unreadCount > 0 ? (
-                        <Badge className="ml-2 bg-blue-500 text-white">
-                          {question.unreadCount} tin nhắn mới
-                        </Badge>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(question.status)}>
-                        {question.status === "pending" && "Đang chờ"}
-                        {question.status === "answered" && "Đã trả lời"}
-                        {question.status === "closed" && "Đã đóng"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {format(
-                        new Date(question.createdAt),
-                        "HH:mm dd/MM/yyyy",
-                        { locale: vi }
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEnterChat(question.id)}
-                      >
-                        Vào chat
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="space-y-4">
+              {questions.map((question) => (
+                <Card
+                  key={question.id}
+                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => handleQuestionClick(question)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="font-semibold text-lg">
+                            {question.title}
+                          </h3>
+                          {getQuestionStatusBadge(question.status)}
+                          {getUnreadBadge(question.unreadCount || 0)}
+                        </div>
+                        <p className="text-muted-foreground text-sm mb-2">
+                          {question.content.length > 100
+                            ? `${question.content.substring(0, 100)}...`
+                            : question.content}
+                        </p>
+                        {question.lastMessage && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>
+                              Tin nhắn cuối: {question.lastMessage.content}
+                            </span>
+                            <span>•</span>
+                            <span>
+                              {format(
+                                new Date(question.lastMessage.createdAt),
+                                "dd/MM/yyyy HH:mm",
+                                {
+                                  locale: vi,
+                                }
+                              )}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
+                          <span>
+                            Tạo lúc:{" "}
+                            {format(
+                              new Date(question.createdAt),
+                              "dd/MM/yyyy HH:mm",
+                              { locale: vi }
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                      <Avatar className="w-10 h-10">
+                        <AvatarFallback>
+                          {question.title.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>
-
-      <CreateQuestionDialog
-        isOpen={isCreateQuestionDialogOpen}
-        onClose={() => setIsCreateQuestionDialogOpen(false)}
-        onQuestionCreated={(newQuestionId) => {
-          fetchQuestions(); // Refresh the list
-          router.push(`/chat/${newQuestionId}`); // Redirect to the new chat room
-        }}
-        isLoading={isCreatingQuestion}
-        setIsLoading={setIsCreatingQuestion} // Pass the setter
-        router={router} // Pass router to the dialog
-      />
     </div>
   );
 };

@@ -46,7 +46,10 @@ export default function AuthDialog({
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotError, setForgotError] = useState("");
-  const [passwordError, setPasswordError] = useState("");
+  const [passwordError, setPasswordError] = useState(""); // State for password validation error
+  const [selectedGender, setSelectedGender] = useState<"M" | "F" | undefined>(
+    undefined
+  ); // State for selected gender
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -389,7 +392,11 @@ export default function AuthDialog({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="register-gender">Giới tính</Label>
-                <Select name="gender" required>
+                <Select
+                  name="gender"
+                  required
+                  onValueChange={(value: "M" | "F") => setSelectedGender(value)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Chọn giới tính" />
                   </SelectTrigger>

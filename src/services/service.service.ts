@@ -1,7 +1,6 @@
 import { apiClient } from "./api"; // Changed to apiClient
 import { API_ENDPOINTS } from "@/config/api";
 import { UploadImageResponse, CreateServiceImageDto, Image } from "@/types/api";
-import { Category } from "./category.service";
 
 export interface Service {
   id: string;
@@ -22,7 +21,6 @@ export interface Service {
   isActive?: boolean;
   createdAt: string; // Add createdAt
   updatedAt: string; // Add updatedAt
-  category : Category;
 }
 
 export interface GetServicesQuery {

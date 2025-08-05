@@ -42,7 +42,6 @@ import { Label } from "@/components/ui/label"; // Ensure Label is imported
 import { Textarea } from "@/components/ui/textarea"; // For description
 import { useAuth } from "@/contexts/AuthContext"; // Import useAuth
 import { Category, CategoryService } from "@/services/category.service"; // Import CategoryService and Category
-import { formatCurrency } from "@/lib/utils";
 
 export default function ServiceManagementTable() {
   const { toast } = useToast();
@@ -427,7 +426,7 @@ export default function ServiceManagementTable() {
               {services.map((service) => (
                 <TableRow key={service.id}>
                   <TableCell>{service.name}</TableCell>
-                  <TableCell>{formatCurrency(service.price ?? 0)}</TableCell>
+                  <TableCell>{service.price?.toLocaleString() || "N/A"}đ</TableCell>
                   <TableCell>{service.duration}</TableCell>
                   <TableCell>{service.requiresConsultant ? "Có" : "Không"}</TableCell>
                   <TableCell>
@@ -700,9 +699,7 @@ export default function ServiceManagementTable() {
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Giá:</Label>
-                <span className="col-span-3">{selectedService.price != null 
-            ? formatCurrency(selectedService.price) 
-            : "N/A"}</span>
+                <span className="col-span-3">{selectedService.price?.toLocaleString() || "N/A"}đ</span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Thời lượng:</Label>
@@ -711,7 +708,7 @@ export default function ServiceManagementTable() {
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Danh mục:</Label>
                 <span className="col-span-3">
-                  {selectedService.category.name || "N/A"}
+                  {categories.find(c => c.id === selectedService.categoryId)?.name || selectedService.categoryId || "N/A"}
                 </span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">

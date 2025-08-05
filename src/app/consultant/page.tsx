@@ -24,6 +24,7 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay } f
 import { vi } from "date-fns/locale"; // Import Vietnamese locale
 import { UpdateAppointmentStatusDialog } from "@/components/UpdateAppointmentStatusDialog";
 import { AppointmentDetailsDialog } from "@/components/AppointmentDetailsDialog";
+import { UpdateMeetingLinkDialog } from "@/components/UpdateMeetingLinkDialog"; // Import new dialog
 import { translatedAppointmentStatus } from "@/lib/translations";
 import { API_FEATURES } from "@/config/api";
 import { Pagination } from "@/components/ui/pagination";
@@ -34,7 +35,6 @@ import { Appointment } from "@/types/api.d"; // Import global Appointment type
 import { User } from "@/services/user.service"; // Import User type
 import { ConsultantProfile } from "@/services/consultant.service"; // Import ConsultantProfile type
 import { EditConsultantProfileDialog } from "@/components/EditConsultantProfileDialog"; // Import the new dialog
-import { EnterChatIdDialog } from "@/components/EnterChatIdDialog"; // Import the new dialog
 
 interface Feedback {
   id: string;
@@ -129,7 +129,6 @@ function ConsultantDashboard() {
   const [errorFeedbacks, setErrorFeedbacks] = useState<string | null>(null);
   const [dailySchedule, setDailySchedule] = useState<any[]>([]); // Placeholder for daily schedule
   const [isEditProfileDialogOpen, setIsEditProfileDialogOpen] = useState(false); // State for dialog
-  const [isEnterChatIdDialogOpen, setIsEnterChatIdDialogOpen] = useState(false); // State for EnterChatIdDialog
 
   // Pagination states for appointments
   const [currentPage, setCurrentPage] = useState(API_FEATURES.PAGINATION.DEFAULT_PAGE);
@@ -360,10 +359,39 @@ function ConsultantDashboard() {
                                 }
                               }}
                             />
+                            <UpdateMeetingLinkDialog
+                              appointmentId={appointment.id}
+                              currentMeetingLink={appointment.meetingLink}
+                              onMeetingLinkUpdate={() => {
+                                if (user) {
+                                  fetchAppointments(user.id);
+                                }
+                              }}
+                            />
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setIsEnterChatIdDialogOpen(true)}
+                              onClick={async () => {
+                                try {
+                                  const chatRoomResponse = await AppointmentService.getAppointmentChatRoom(appointment.id);
+                                  if (chatRoomResponse && chatRoomResponse.id) { // Assuming the response has an 'id' field for questionId
+                                    router.push(`/chat/${chatRoomResponse.id}`);
+                                  } else {
+                                    toast({
+                                      title: "Thông báo",
+                                      description: "Khách hàng chưa tạo phòng chat cho cuộc hẹn này.",
+                                      variant: "default",
+                                    });
+                                  }
+                                } catch (err: any) {
+                                  console.error("Error getting chat room for appointment:", err);
+                                  toast({
+                                    title: "Lỗi",
+                                    description: `Không thể vào phòng chat: ${err.message || "Đã xảy ra lỗi không xác định."}`,
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
                             >
                               Chat
                             </Button>
@@ -477,13 +505,6 @@ function ConsultantDashboard() {
         />
       )}
 
-      <EnterChatIdDialog
-        isOpen={isEnterChatIdDialogOpen}
-        onClose={() => setIsEnterChatIdDialogOpen(false)}
-        onEnterChat={(questionId) => {
-          router.push(`/chat/${questionId}`);
-        }}
-      />
     </div>
   );
 }

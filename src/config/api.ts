@@ -2,7 +2,7 @@
 export const API_BASE_URL =
   process.env.NODE_ENV === "development"
     ? "/api" // Will be proxied through Next.js
-    : process.env.NEXT_PUBLIC_API_URL || "https://gender-healthcare.org";
+    : process.env.NEXT_PUBLIC_API_URL || "https://genderhealthcare.uk";
 
 // API Endpoints
 export const API_ENDPOINTS = {
@@ -20,7 +20,6 @@ export const API_ENDPOINTS = {
     RESET_PASSWORD: "/auth/reset-password",
     REFRESH_TOKEN: "/auth/refresh-token",
     ME: "/auth/me",
-    GOOGLE: "/auth/google/authenticate",
   },
 
   // Users
@@ -49,6 +48,9 @@ export const API_ENDPOINTS = {
     GET_MEETING_LINK: (id: string) => `/appointments/${id}/meeting-link`,
     REMOVE_MEETING_LINK: (id: string) => `/appointments/${id}/meeting-link`,
     CONSULTANT_MY_APPOINTMENTS: "/appointments/consultant/my-appointments", // Added for consultant dashboard
+    STATISTICS: {
+      DASHBOARD: "/appointments/statistics/dashboard",
+    },
   },
 
   // Consultants
@@ -197,6 +199,27 @@ export const API_ENDPOINTS = {
   // Roles
   ROLES: {
     GET_ALL: "/roles",
+  },
+
+  // Chat
+  CHAT: {
+    BASE: "/chat",
+    QUESTIONS: "/chat/questions",
+    QUESTION_BY_ID: (id: string) => `/chat/questions/${id}`,
+    QUESTION_MESSAGES: (id: string) => `/chat/questions/${id}/messages`,
+    QUESTION_MESSAGES_WITH_URLS: (id: string) =>
+      `/chat/questions/${id}/messages/with-urls`,
+    QUESTION_MESSAGES_FILE: (id: string) =>
+      `/chat/questions/${id}/messages/file`,
+    QUESTION_MESSAGES_PUBLIC_PDF: (id: string) =>
+      `/chat/questions/${id}/messages/public-pdf`,
+    QUESTION_MESSAGES_READ_ALL: (id: string) =>
+      `/chat/questions/${id}/messages/read-all`,
+    MESSAGE_READ: (id: string) => `/chat/messages/${id}/read`,
+    MESSAGE_DELETE: (id: string) => `/chat/messages/${id}`,
+    MESSAGE_FILE: (id: string) => `/chat/messages/${id}/file`,
+    MESSAGES_UNREAD_COUNT: "/chat/messages/unread-count",
+    QUESTION_SUMMARY: (id: string) => `/chat/questions/${id}/summary`,
   },
 };
 

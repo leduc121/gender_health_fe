@@ -1,4 +1,4 @@
-https://gender-healthcare.org
+<https://genderhealthcare.uk>
 
 Appointments
 
@@ -291,7 +291,7 @@ entityType _
 string
 (query)
 entityType
-entityId _
+entityId_
 string
 (query)
 entityId
@@ -318,7 +318,7 @@ entityType _
 string
 (query)
 entityType
-entityId _
+entityId_
 string
 (query)
 entityId
@@ -395,7 +395,7 @@ id _
 string
 (path)
 id
-type _
+type_
 string
 (query)
 Available values : image, document
@@ -477,7 +477,7 @@ Request body
 
 application/json
 {
-"email": "example@example.com",
+"email": "<example@example.com>",
 "password": "string"
 }
 Execute
@@ -555,7 +555,7 @@ Request body
 
 application/json
 {
-"email": "user@example.com"
+"email": "<user@example.com>"
 }
 Execute
 Responses
@@ -1366,13 +1366,13 @@ multipart/form-data
 firstName _
 string
 string
-lastName _
+lastName_
 string
 string
 email _
 string
 string
-password _
+password_
 string
 string
 specialties \*
@@ -1385,7 +1385,7 @@ Add string item
 qualification _
 string
 string
-experience _
+experience_
 string
 string
 bio
@@ -2229,7 +2229,7 @@ entityType _
 string
 (path)
 entityType
-entityId _
+entityId_
 string
 (path)
 entityId
@@ -2566,7 +2566,7 @@ entityType _
 string
 (path)
 entityType
-entityId _
+entityId_
 string
 (path)
 entityId
@@ -4434,10 +4434,10 @@ Responses
 Curl
 
 curl -X 'GET' \
- 'https://gender-healthcare.org/user-package-subscriptions' \
+ '<https://gender-healthcare.org/user-package-subscriptions>' \
  -H 'accept: _/_'
 Request URL
-https://gender-healthcare.org/user-package-subscriptions
+<https://gender-healthcare.org/user-package-subscriptions>
 Server response
 Code Details
 200
@@ -4516,12 +4516,12 @@ Responses
 Curl
 
 curl -X 'POST' \
- 'https://gender-healthcare.org/tags' \
+ '<https://gender-healthcare.org/tags>' \
  -H 'accept: _/_' \
  -H 'Content-Type: application/json' \
  -d '{}'
 Request URL
-https://gender-healthcare.org/tags
+<https://gender-healthcare.org/tags>
 Server response
 Code Details
 201
@@ -4573,10 +4573,10 @@ Responses
 Curl
 
 curl -X 'GET' \
- 'https://gender-healthcare.org/tags' \
+ '<https://gender-healthcare.org/tags>' \
  -H 'accept: _/_'
 Request URL
-https://gender-healthcare.org/tags
+<https://gender-healthcare.org/tags>
 Server response
 Code Details
 200

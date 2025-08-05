@@ -55,7 +55,7 @@ const ReproductiveHealthTracker = () => {
     const fetchCycleData = async () => {
       try {
         const response = await fetch(
-          "https://gender-healthcare.org/menstrual-cycles"
+          "https://genderhealthcare.uk/api/menstrual-cycles"
         );
         if (!response.ok) throw new Error("Failed to fetch cycle data");
         const data = await response.json();
@@ -78,7 +78,7 @@ const ReproductiveHealthTracker = () => {
     const fetchReminders = async () => {
       try {
         const response = await fetch(
-          "https://gender-healthcare.org/contraceptive-reminders"
+          "https://genderhealthcare.uk/api/contraceptive-reminders"
         );
         if (!response.ok) throw new Error("Failed to fetch reminders");
         const data = await response.json();
@@ -132,7 +132,7 @@ const ReproductiveHealthTracker = () => {
 
     try {
       const response = await fetch(
-        `https://gender-healthcare.org/menstrual-cycles/${selectedDay.date.toISOString()}`,
+        `https://genderhealthcare.uk/api/menstrual-cycles/${selectedDay.date.toISOString()}`,
         {
           method: "PATCH",
           headers: {
@@ -174,7 +174,7 @@ const ReproductiveHealthTracker = () => {
     setIsLoading(true);
     try {
       const response = await fetch(
-        "https://gender-healthcare.org/contraceptive-reminders",
+        "https://genderhealthcare.uk/api/contraceptive-reminders",
         {
           method: "POST",
           headers: {

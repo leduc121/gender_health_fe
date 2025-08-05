@@ -1,15 +1,15 @@
 "use client";
+import { useToast } from "@/components/ui/use-toast";
+import { APIService, Service } from "@/services/service.service";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { APIService, Service } from "@/services/service.service";
-import { useToast } from "@/components/ui/use-toast";
+import { useEffect, useState } from "react";
 
 async function getBlogs() {
   try {
     const res = await fetch(
-      "https://gender-healthcare.org/blogs/published?page=1&limit=3",
+      "https://genderhealthcare.uk/blogs/published?page=1&limit=3",
       { cache: "no-store" }
     );
     if (!res.ok) {
@@ -17,22 +17,22 @@ async function getBlogs() {
       return [];
     }
     const result = await res.json();
-    
+
     const blogData = result.data?.data || result.data || [];
-    
+
     if (!Array.isArray(blogData)) {
-        console.error("Expected blogData to be an array but got:", blogData);
-        return [];
+      console.error("Expected blogData to be an array but got:", blogData);
+      return [];
     }
 
-     return blogData.map((blog: any) => {
-        const image = blog.images?.[0];
-        return {
-          ...blog,
-          imageUrl: image?.url || null,
-        }
-     });
-  } catch(e) {
+    return blogData.map((blog: any) => {
+      const image = blog.images?.[0];
+      return {
+        ...blog,
+        imageUrl: image?.url || null,
+      };
+    });
+  } catch (e) {
     console.error("Failed to fetch or process blogs:", e);
     return [];
   }
@@ -54,12 +54,14 @@ export default function HomePage() {
         setServices([]); // Set to empty array on error
       });
 
-    getBlogs().then((res) => {
-      setBlogs(res);
-    }).catch((error) => {
+    getBlogs()
+      .then((res) => {
+        setBlogs(res);
+      })
+      .catch((error) => {
         console.error("Error in getBlogs promise chain:", error);
         setBlogs([]); // Set to empty array on error
-    });
+      });
 
     const params = new URLSearchParams(window.location.search);
     if (params.get("blogSubmitted") === "true") {
@@ -150,8 +152,8 @@ export default function HomePage() {
                     alt={service.name}
                     fill
                     className="object-cover w-full h-full rounded-xl group-hover:scale-105 transition-transform"
-                    onError={(e:any) => {
-                      e.currentTarget.style.display = 'none';
+                    onError={(e: any) => {
+                      e.currentTarget.style.display = "none";
                     }}
                   />
                 ) : (
@@ -177,8 +179,9 @@ export default function HomePage() {
                     {service.price?.toLocaleString() || "Liên hệ"} VNĐ
                   </span>
                 </span>
-                 <span className="inline-block text-sm text-blue-700 font-medium">
-                  Thời lượng: <span className="font-bold">{service.duration} phút</span>
+                <span className="inline-block text-sm text-blue-700 font-medium">
+                  Thời lượng:{" "}
+                  <span className="font-bold">{service.duration} phút</span>
                 </span>
               </div>
               <Link
@@ -230,8 +233,8 @@ export default function HomePage() {
                       alt={blog.title}
                       fill
                       className="object-cover w-full h-full rounded-xl group-hover:scale-105 transition-transform"
-                      onError={(e:any) => {
-                        e.currentTarget.style.display = 'none';
+                      onError={(e: any) => {
+                        e.currentTarget.style.display = "none";
                       }}
                     />
                   ) : (

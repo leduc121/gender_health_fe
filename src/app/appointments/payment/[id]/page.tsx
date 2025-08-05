@@ -23,7 +23,7 @@ export default function AppointmentPaymentPage() {
     const createPayment = async () => {
       try {
         const res = await fetch(
-          "https://gender-healthcare.org/payments/appointments",
+          "https://genderhealthcare.uk/payments/appointments",
           {
             method: "POST",
             headers: {

@@ -121,7 +121,7 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
     setIsLoadingAppointments(true);
     try {
       const response = await fetch(
-        "https://gender-healthcare.org/appointments"
+        "https://genderhealthcare.uk/api/appointments"
       );
       if (!response.ok) throw new Error("Failed to fetch appointments");
       const data = await response.json();
@@ -192,7 +192,7 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
       appointmentDate.setHours(hours, minutes, 0, 0);
 
       const response = await fetch(
-        "https://gender-healthcare.org/appointments",
+        "https://genderhealthcare.uk/api/appointments",
         {
           method: "POST",
           headers: {
@@ -232,7 +232,7 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
   const handleCancelAppointment = async (appointmentId: string) => {
     try {
       const response = await fetch(
-        `https://gender-healthcare.org/appointments/${appointmentId}/cancel`,
+        `https://genderhealthcare.uk/api/appointments/${appointmentId}/cancel`,
         { method: "POST" }
       );
 
