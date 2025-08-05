@@ -164,7 +164,7 @@ function AppointmentsContent() {
       const mappedServiceIds = selectedServiceIds;
 
       getAvailableSlots({
-        serviceIds: mappedServiceIds,
+        serviceIds: [],
         startDate,
         token,
       })
