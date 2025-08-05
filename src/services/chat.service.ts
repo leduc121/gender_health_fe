@@ -1,9 +1,9 @@
-import { apiClient } from "./api";
+import { Appointment } from "@/services/appointment.service";
+import { ConsultantProfile } from "@/services/consultant.service";
+import { User } from "@/services/user.service";
+import { ApiResponse, CreateQuestionDto, Question } from "@/types/api.d";
 import { io, Socket } from "socket.io-client";
-import { Appointment } from "@/services/appointment.service"; // Import Appointment type
-import { User } from "@/services/user.service"; // Import User type
-import { ConsultantProfile } from "@/services/consultant.service"; // Import ConsultantProfile type
-import { ApiResponse, CreateQuestionDto, Question } from "@/types/api.d"; // Import ApiResponse, CreateQuestionDto and Question
+import { apiClient } from "./api";
 
 export interface ChatRoom {
   id: string;
@@ -16,8 +16,8 @@ export interface ChatRoom {
 
 export interface ChatMessage {
   id: string;
-  appointmentId?: string; // Make optional, for appointment-based chats
-  questionId?: string; // Make optional, for question-based chats
+  appointmentId?: string;
+  questionId?: string;
   senderId: string;
   senderName?: string;
   content: string;
@@ -41,53 +41,133 @@ export interface PaginatedResponse<T> {
 let socket: Socket | null = null;
 let typingTimeout: NodeJS.Timeout;
 let reconnectAttempts = 0;
+const maxReconnectAttempts = 5;
 
 export function initializeSocket(): Socket {
   const token =
     typeof window !== "undefined"
       ? localStorage.getItem("accessToken")
       : undefined;
-  const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  // Sử dụng URL từ environment hoặc fallback đến domain chính với path /chat
+  const SOCKET_URL =
+    process.env.NEXT_PUBLIC_WEBSOCKET_URL || "https://genderhealthcare.uk";
+
+  console.log("[ChatService] Initializing socket with URL:", SOCKET_URL);
+  console.log("[ChatService] Token present:", !!token);
 
   const newSocket = io(SOCKET_URL, {
-    path: "/socket.io",
-    auth: { token: `Bearer ${token}` },
+    path: "/chat", // Thêm path cho WebSocket
+    extraHeaders: {
+      Authorization: `Bearer ${token}`,
+    },
+    auth: {
+      token: token, // Bỏ prefix "Bearer" vì server có thể xử lý khác
+      userId:
+        typeof window !== "undefined" ? localStorage.getItem("userId") : null,
+    },
     transports: ["websocket", "polling"],
     autoConnect: false,
     withCredentials: true,
-    forceNew: true,
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    forceNew: true, // Tạo kết nối mới
   });
 
   newSocket.on("connect", () => {
-    console.log("Connected to chat server");
-    newSocket.emit("join_namespace", { namespace: "chat" }, (response: any) => {
-      console.log("Namespace join response:", response);
-    });
+    console.log("[ChatService] Connected to chat server");
+    console.log("[ChatService] Socket ID:", newSocket.id);
+    console.log("[ChatService] Transport:", newSocket.io.engine.transport.name);
     reconnectAttempts = 0;
   });
 
   newSocket.on("connected", (data) => {
-    console.log("Server confirmed connection:", data);
+    console.log("[ChatService] Server confirmed connection:", data);
   });
 
   newSocket.on("disconnect", (reason) => {
-    console.log("Disconnected:", reason);
-    if (reason !== "io client disconnect") {
-      console.log("Attempting to reconnect...");
-      newSocket.connect();
+    console.log("[ChatService] Disconnected:", reason);
+    if (
+      reason !== "io client disconnect" &&
+      reconnectAttempts < maxReconnectAttempts
+    ) {
+      console.log("[ChatService] Attempting to reconnect...");
+      const backoffTime = Math.min(2000 * Math.pow(2, reconnectAttempts), 8000);
+      reconnectAttempts++;
+
+      setTimeout(() => {
+        newSocket.connect();
+      }, backoffTime);
     }
   });
 
   newSocket.on("connect_error", (error) => {
-    console.error("Connection failed:", error);
-    const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
+    console.error("[ChatService] Connection failed:", error);
+    console.error("[ChatService] Error details:", {
+      message: error.message,
+      description: (error as any).description,
+      context: (error as any).context,
+      type: (error as any).type,
+    });
+    console.error("[ChatService] Error context:", {
+      url: SOCKET_URL,
+      path: "/chat",
+      token: !!token,
+      tokenLength: token?.length,
+      tokenStart: token?.substring(0, 10) + "...",
+    });
+
+    // Xử lý lỗi xác thực đặc biệt
+    if (
+      error.message?.includes("Authentication") ||
+      error.message?.includes("Unauthorized")
+    ) {
+      console.error(
+        "[ChatService] Authentication error - clearing token and reloading"
+      );
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("userId");
+        window.location.href = "/auth/login";
+      }
+      return;
+    }
+
+    const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts), 5000);
     reconnectAttempts++;
 
-    setTimeout(() => {
-      newSocket.connect();
-    }, backoffTime);
+    if (reconnectAttempts < maxReconnectAttempts) {
+      console.log(
+        `[ChatService] Retrying connection in ${backoffTime}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`
+      );
+      setTimeout(() => {
+        newSocket.connect();
+      }, backoffTime);
+    } else {
+      console.error("[ChatService] Max reconnection attempts reached");
+    }
   });
 
+  // Thêm event listeners để debug
+  newSocket.on("reconnect", (attemptNumber) => {
+    console.log("[ChatService] Reconnected after", attemptNumber, "attempts");
+  });
+
+  newSocket.on("reconnect_error", (error) => {
+    console.error("[ChatService] Reconnection error:", error);
+  });
+
+  newSocket.on("reconnect_failed", () => {
+    console.error("[ChatService] Reconnection failed");
+  });
+
+  console.log("[ChatService] Attempting to connect...");
   newSocket.connect();
   return newSocket;
 }
@@ -99,50 +179,225 @@ export function getSocket(): Socket {
   return socket;
 }
 
+export function resetSocket(): void {
+  if (socket) {
+    console.log("[ChatService] Resetting socket connection");
+    socket.disconnect();
+    socket = null;
+  }
+}
+
+export function refreshSocketAuth(): void {
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+  const userId =
+    typeof window !== "undefined" ? localStorage.getItem("userId") : null;
+
+  if (socket && token) {
+    console.log("[ChatService] Refreshing socket authentication");
+    socket.auth = {
+      token: token,
+      userId: userId,
+    };
+    socket.disconnect();
+    socket.connect();
+  }
+}
+
 export const ChatService = {
-  async getAppointmentChatDetails(appointmentId: string): Promise<Appointment & { user: User, consultant: ConsultantProfile }> {
-    const res = await apiClient.get<Appointment & { user: User, consultant: ConsultantProfile }>(
-      `/appointments/${appointmentId}/chat-details`
-    );
+  // WebSocket Methods for Question-based Chat
+  async joinQuestionRoom(questionId: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const socket = getSocket();
+
+      if (!socket.connected) {
+        console.log(
+          "[ChatService] Socket not connected, attempting to connect first..."
+        );
+        socket.connect();
+
+        // Wait for connection before joining room
+        socket.once("connect", () => {
+          console.log("[ChatService] Socket connected, now joining room...");
+          socket.emit("join_question", { questionId }, (ack: any) => {
+            if (ack && ack.status === "success") {
+              console.log(
+                "[ChatService] Successfully joined question room:",
+                questionId
+              );
+              resolve();
+            } else {
+              console.error(
+                "[ChatService] Failed to join question room:",
+                ack?.message || "Unknown error"
+              );
+              reject(new Error(ack?.message || "Failed to join question room"));
+            }
+          });
+        });
+
+        // Handle connection errors
+        socket.once("connect_error", (error) => {
+          console.error(
+            "[ChatService] Connection error while joining room:",
+            error
+          );
+          reject(new Error("Cannot connect to chat server"));
+        });
+
+        return;
+      }
+
+      // Socket is already connected
+      socket.emit("join_question", { questionId }, (ack: any) => {
+        console.log("[ChatService] Join room acknowledgment:", ack);
+        if (ack && ack.status === "success") {
+          console.log(
+            "[ChatService] Successfully joined question room:",
+            questionId
+          );
+          resolve();
+        } else {
+          console.error(
+            "[ChatService] Failed to join question room:",
+            ack?.message || "Unknown error"
+          );
+          reject(new Error(ack?.message || "Failed to join question room"));
+        }
+      });
+    });
+  },
+
+  async leaveQuestionRoom(questionId: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const socket = getSocket();
+      socket.emit("leave_question", { questionId }, (ack: any) => {
+        if (ack.status === "success") {
+          console.log(
+            "[ChatService] Successfully left question room:",
+            questionId
+          );
+          resolve();
+        } else {
+          console.error(
+            "[ChatService] Failed to leave question room:",
+            ack.message
+          );
+          reject(new Error(ack.message || "Failed to leave question room"));
+        }
+      });
+    });
+  },
+
+  async sendMessageViaWebSocket(
+    questionId: string,
+    content: string,
+    type: string = "text"
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const socket = getSocket();
+      socket.emit("send_message", { questionId, content, type }, (ack: any) => {
+        if (ack.status === "success") {
+          console.log("[ChatService] Message sent successfully via WebSocket");
+          resolve();
+        } else {
+          console.error(
+            "[ChatService] Failed to send message via WebSocket:",
+            ack.message
+          );
+          reject(new Error(ack.message || "Failed to send message"));
+        }
+      });
+    });
+  },
+
+  async setTypingStatus(questionId: string, isTyping: boolean): Promise<void> {
+    try {
+      const socket = getSocket();
+      socket.emit("typing", { questionId, isTyping });
+    } catch (error) {
+      console.error("[ChatService] Could not set typing status:", error);
+    }
+  },
+
+  handleTyping(questionId: string): void {
+    this.setTypingStatus(questionId, true);
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(() => {
+      this.setTypingStatus(questionId, false);
+    }, 3000);
+  },
+
+  async markMessageAsReadViaWebSocket(
+    questionId: string,
+    messageId: string
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const socket = getSocket();
+      socket.emit("mark_as_read", { questionId, messageId }, (ack: any) => {
+        if (ack.status === "success") {
+          console.log("[ChatService] Message marked as read via WebSocket");
+          resolve();
+        } else {
+          console.error(
+            "[ChatService] Failed to mark message as read:",
+            ack.message
+          );
+          reject(new Error(ack.message || "Failed to mark message as read"));
+        }
+      });
+    });
+  },
+
+  // Legacy Appointment-based chat methods (kept for backward compatibility)
+  async getAppointmentChatDetails(
+    appointmentId: string
+  ): Promise<Appointment & { user: User; consultant: ConsultantProfile }> {
+    const res = await apiClient.get<
+      Appointment & { user: User; consultant: ConsultantProfile }
+    >(`/appointments/${appointmentId}/chat-details`);
     return res;
   },
 
   async joinRoom(appointmentId: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      getSocket().emit("join_appointment_chat", { appointmentId }, (ack: any) => {
-        if (ack.status === "success") resolve();
-        else reject(ack);
-      });
+      getSocket().emit(
+        "join_appointment_chat",
+        { appointmentId },
+        (ack: any) => {
+          if (ack.status === "success") resolve();
+          else reject(ack);
+        }
+      );
     });
   },
 
   async leaveRoom(appointmentId: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      getSocket().emit("leave_appointment_chat", { appointmentId }, (ack: any) => {
-        if (ack.status === "success") resolve();
-        else reject(ack);
-      });
+      getSocket().emit(
+        "leave_appointment_chat",
+        { appointmentId },
+        (ack: any) => {
+          if (ack.status === "success") resolve();
+          else reject(ack);
+        }
+      );
     });
   },
 
   async setTyping(appointmentId: string, isTyping: boolean) {
     try {
-        getSocket().emit("typing", { appointmentId, isTyping });
+      getSocket().emit("typing", { appointmentId, isTyping });
     } catch (error) {
-        console.error("Could not set typing status:", error);
+      console.error("Could not set typing status:", error);
     }
   },
 
-  handleTyping(appointmentId: string) {
-    this.setTyping(appointmentId, true);
-    clearTimeout(typingTimeout);
-    typingTimeout = setTimeout(() => {
-      this.setTyping(appointmentId, false);
-    }, 3000);
-  },
-
   // Appointment-based chat methods (restored/renamed for clarity)
-  async getAppointmentMessages(appointmentId: string, params: Record<string, any> = {}) {
+  async getAppointmentMessages(
+    appointmentId: string,
+    params: Record<string, any> = {}
+  ) {
     const query = new URLSearchParams(params).toString();
     return apiClient.get<PaginatedResponse<ChatMessage>>(
       `/appointments/${appointmentId}/messages?${query}`
@@ -190,8 +445,11 @@ export const ChatService = {
     );
   },
 
-  // Question-based chat methods
-  async getQuestionMessages(questionId: string, params: Record<string, any> = {}) {
+  // Question-based chat methods (REST API)
+  async getQuestionMessages(
+    questionId: string,
+    params: Record<string, any> = {}
+  ) {
     const query = new URLSearchParams(params).toString();
     return apiClient.get<PaginatedResponse<ChatMessage>>(
       `/chat/questions/${questionId}/messages?${query}`
@@ -258,7 +516,6 @@ export const ChatService = {
   },
 
   async getUnreadCount() {
-    // This might need to be updated to be per-appointment or for all appointments for a user/consultant
     return apiClient.get<{ unreadCount: number }>(
       `/chat/messages/unread-count`
     );
@@ -268,42 +525,68 @@ export const ChatService = {
     return apiClient.patch(`/chat/messages/${messageId}/read`);
   },
 
-  async createQuestion(data: CreateQuestionDto): Promise<ApiResponse<Question>> {
+  async createQuestion(
+    data: CreateQuestionDto
+  ): Promise<ApiResponse<Question>> {
     return apiClient.post<ApiResponse<Question>>("/chat/questions", data);
   },
 
-  async getQuestions(params: { search?: string; page?: number; limit?: number } = {}): Promise<PaginatedResponse<Question>> {
-    const query = new URLSearchParams(params as Record<string, string>).toString();
-    return apiClient.get<PaginatedResponse<Question>>(`/chat/questions${query ? `?${query}` : ""}`);
+  async getQuestions(
+    params: { search?: string; page?: number; limit?: number } = {}
+  ): Promise<PaginatedResponse<Question>> {
+    const query = new URLSearchParams(
+      params as Record<string, string>
+    ).toString();
+    return apiClient.get<PaginatedResponse<Question>>(
+      `/chat/questions${query ? `?${query}` : ""}`
+    );
   },
 
   async getQuestionById(questionId: string): Promise<Question> {
     try {
-      console.log(`[ChatService] Attempting to fetch question with ID: ${questionId}`);
-      const res = await apiClient.get<Question>(`/chat/questions/${questionId}`);
-      console.log(`[ChatService] Successfully fetched question ${questionId}:`, res);
+      console.log(
+        `[ChatService] Attempting to fetch question with ID: ${questionId}`
+      );
+      const res = await apiClient.get<Question>(
+        `/chat/questions/${questionId}`
+      );
+      console.log(
+        `[ChatService] Successfully fetched question ${questionId}:`,
+        res
+      );
       return res;
     } catch (error: any) {
-      console.error(`[ChatService] Error fetching question ${questionId}:`, error);
+      console.error(
+        `[ChatService] Error fetching question ${questionId}:`,
+        error
+      );
       if (error.response) {
-        console.error("[ChatService] API Error Response Data:", error.response.data);
-        console.error("[ChatService] API Error Response Status:", error.response.status);
+        console.error(
+          "[ChatService] API Error Response Data:",
+          error.response.data
+        );
+        console.error(
+          "[ChatService] API Error Response Status:",
+          error.response.status
+        );
       }
       throw error;
     }
   },
 
   async getChatRoomByAppointmentId(appointmentId: string): Promise<ChatRoom> {
-    const res = await apiClient.get<ChatRoom>(`/appointments/${appointmentId}/chat-room`);
+    const res = await apiClient.get<ChatRoom>(
+      `/appointments/${appointmentId}/chat-room`
+    );
     return res;
   },
 
-  onNewMessage(
-    callback: (message: ChatMessage) => void
-  ) {
+  // WebSocket Event Listeners
+  onNewMessage(callback: (message: ChatMessage) => void) {
     const socket = getSocket();
-    const handler = (data: { data: ChatMessage }) => {
-      callback(data.data);
+    const handler = (data: { data: ChatMessage } | ChatMessage) => {
+      const message = "data" in data ? data.data : data;
+      callback(message);
     };
     socket.on("new_message", handler);
     return () => socket.off("new_message", handler);
@@ -314,8 +597,8 @@ export const ChatService = {
       userId: string;
       userName: string;
       isTyping: boolean;
-      appointmentId?: string; // Can be for appointment or question
-      questionId?: string; // Can be for appointment or question
+      appointmentId?: string;
+      questionId?: string;
     }) => void
   ) {
     const socket = getSocket();
@@ -333,7 +616,12 @@ export const ChatService = {
   },
 
   onMessageRead(
-    callback: (data: { messageId: string; userId: string; appointmentId?: string; questionId?: string }) => void
+    callback: (data: {
+      messageId: string;
+      userId: string;
+      appointmentId?: string;
+      questionId?: string;
+    }) => void
   ) {
     const socket = getSocket();
     const handler = (data: {
@@ -346,5 +634,55 @@ export const ChatService = {
     };
     socket.on("message_read", handler);
     return () => socket.off("message_read", handler);
+  },
+
+  onUserJoined(
+    callback: (data: {
+      userId: string;
+      userName: string;
+      questionId: string;
+    }) => void
+  ) {
+    const socket = getSocket();
+    const handler = (data: {
+      userId: string;
+      userName: string;
+      questionId: string;
+    }) => {
+      callback(data);
+    };
+    socket.on("user_joined", handler);
+    return () => socket.off("user_joined", handler);
+  },
+
+  onUserLeft(
+    callback: (data: {
+      userId: string;
+      userName: string;
+      questionId: string;
+    }) => void
+  ) {
+    const socket = getSocket();
+    const handler = (data: {
+      userId: string;
+      userName: string;
+      questionId: string;
+    }) => {
+      callback(data);
+    };
+    socket.on("user_left", handler);
+    return () => socket.off("user_left", handler);
+  },
+
+  // Utility methods
+  disconnect(): void {
+    if (socket) {
+      socket.disconnect();
+      socket = null;
+    }
+  },
+
+  isConnected(): boolean {
+    return socket?.connected || false;
   },
 };
