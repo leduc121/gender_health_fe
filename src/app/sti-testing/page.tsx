@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { formatCurrency } from "@/lib/utils";
 import { APIService } from "@/services/service.service"; // Import ServiceService and Service
 import { STITestingService } from "@/services/sti-testing.service"; // Import STITestingService
 import {
@@ -515,9 +516,7 @@ export default function STITestingPage() {
                         <span className="text-gray-600">Chi phí:</span>
                         <span className="font-medium">
                           {appointment.fixedPrice
-                            ? parseFloat(
-                                appointment.fixedPrice
-                              ).toLocaleString() + "đ"
+                            ? formatCurrency(parseFloat(appointment.fixedPrice))
                             : "N/A"}
                         </span>
                       </div>

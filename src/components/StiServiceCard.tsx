@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatCurrency } from "@/lib/utils";
 import { CheckCircle2 } from "lucide-react";
 
 export default function StiServiceCard({ service, selected, onSelect }: any) {
@@ -22,7 +23,7 @@ export default function StiServiceCard({ service, selected, onSelect }: any) {
         </p>
         <div className="flex justify-between items-center mt-4">
           <span className="text-primary font-bold text-lg">
-            {service.price?.toLocaleString()}đ
+            {formatCurrency(service.price) || 0}
           </span>
           <Button
             size="sm"

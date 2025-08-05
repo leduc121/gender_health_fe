@@ -1,5 +1,6 @@
 "use client";
 import { useToast } from "@/components/ui/use-toast";
+import { formatCurrency } from "@/lib/utils";
 import { APIService, Service } from "@/services/service.service";
 import Image from "next/image";
 import Link from "next/link";
@@ -176,7 +177,7 @@ export default function HomePage() {
                 <span className="inline-block font-semibold text-lg text-green-700">
                   Giá:{" "}
                   <span className="text-2xl text-green-800">
-                    {service.price?.toLocaleString() || "Liên hệ"} VNĐ
+                    {formatCurrency(service.price || 0)}
                   </span>
                 </span>
                 <span className="inline-block text-sm text-blue-700 font-medium">
