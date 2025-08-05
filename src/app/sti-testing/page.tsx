@@ -16,8 +16,8 @@ import {
   CreateStiAppointmentDto,
   FindAvailableSlotsDto,
 } from "@/types/sti-appointment.d"; // Import new DTOs and types
+import { vi } from "date-fns/locale";
 import { Shield } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 const steps = [
   "Chọn dịch vụ",
@@ -49,7 +49,6 @@ export default function STITestingPage() {
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlotDto | null>(
     null
   );
-  const router = useRouter();
 
   if (!isAuthenticated) {
     return (
@@ -130,7 +129,11 @@ export default function STITestingPage() {
 
     const fetchAvailableSlots = async () => {
       try {
-        const startDate = selectedDate.toISOString().split("T")[0]; // YYYY-MM-DD
+        // Format date to YYYY-MM-DD without timezone conversion
+        const year = selectedDate.getFullYear();
+        const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
+        const day = String(selectedDate.getDate()).padStart(2, "0");
+        const startDate = `${year}-${month}-${day}`;
         const endDate = startDate; // Search for slots on the selected date only
 
         const payload: FindAvailableSlotsDto = {
@@ -222,12 +225,23 @@ export default function STITestingPage() {
     try {
       const bookedResults: Appointment[] = [];
 
-      const sampleCollectionDateTime = new Date(selectedSlot.dateTime);
+      // Create date from selected slot, ensuring we preserve the local date and time
+      const slotDate = new Date(selectedSlot.dateTime);
+      // Create a new date object with the same local date and time to avoid timezone issues
+      const localDate = new Date(
+        slotDate.getFullYear(),
+        slotDate.getMonth(),
+        slotDate.getDate(),
+        slotDate.getHours(),
+        slotDate.getMinutes(),
+        slotDate.getSeconds()
+      );
+      const sampleCollectionDateTime = localDate.toISOString();
 
       for (const serviceId of selectedServiceIds) {
         const payload: CreateStiAppointmentDto = {
           stiServiceId: serviceId,
-          sampleCollectionDate: sampleCollectionDateTime.toISOString(),
+          sampleCollectionDate: sampleCollectionDateTime,
           sampleCollectionLocation: "office",
           notes: notes ? notes : undefined,
           consultantId: selectedSlot.consultant?.id, // Pass consultantId from selected slot
@@ -321,10 +335,11 @@ export default function STITestingPage() {
               <label className="font-medium block mb-2">Chọn ngày</label>
               <Calendar
                 mode="single"
+                locale={vi}
                 selected={selectedDate}
                 onSelect={setSelectedDate}
                 className="rounded-2xl border shadow-lg p-4 bg-white"
-                fromDate={new Date()}
+                hidden={{ before: new Date() }}
                 modifiersClassNames={{
                   selected: "bg-primary text-white rounded-lg",
                   today: "border border-primary rounded-lg",
@@ -411,42 +426,151 @@ export default function STITestingPage() {
         )}
         {step === 4 && bookingResult && (
           <div className="text-center">
-            <h2 className="text-2xl font-bold mb-4 text-primary">
+            <h2 className="text-2xl font-bold mb-6 text-primary">
               Đặt lịch thành công!
             </h2>
-            <div className="mb-2">
-              ID lịch hẹn:{" "}
-              <span className="font-mono font-bold">
-                {bookingResult?.[0]?.id || "N/A"}
-              </span>
+
+            {/* Thông tin tổng quan */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                    <svg
+                      className="w-6 h-6 text-green-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800">
+                      Đặt lịch thành công!
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      Bạn đã đặt {bookingResult.length} lịch hẹn xét nghiệm
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex justify-center">
+                  <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                    {bookingResult?.[0]?.status === "confirmed"
+                      ? "Đã xác nhận"
+                      : bookingResult?.[0]?.status}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="mb-2">
-              Số lượng lịch hẹn đã đặt:{" "}
-              <span className="font-medium">{bookingResult.length}</span>
+
+            {/* Chi tiết từng lịch hẹn */}
+            <div className="space-y-4 mb-6">
+              <h3 className="text-lg font-semibold text-gray-700">
+                Chi tiết lịch hẹn
+              </h3>
+              {bookingResult.map((appointment, index) => (
+                <div
+                  key={appointment.id}
+                  className="bg-white border rounded-lg p-4 text-left"
+                >
+                  <div className="mb-3">
+                    <h4 className="font-medium text-gray-800">
+                      Lịch hẹn #{index + 1}
+                    </h4>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Ngày giờ:</span>
+                        <span className="font-medium">
+                          {appointment.appointmentDate
+                            ? new Date(
+                                appointment.appointmentDate
+                              ).toLocaleString("vi-VN", {
+                                year: "numeric",
+                                month: "2-digit",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Địa điểm:</span>
+                        <span className="font-medium">
+                          {appointment.appointmentLocation === "office"
+                            ? "Văn phòng"
+                            : appointment.appointmentLocation}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Chi phí:</span>
+                        <span className="font-medium">
+                          {appointment.fixedPrice
+                            ? parseFloat(
+                                appointment.fixedPrice
+                              ).toLocaleString() + "đ"
+                            : "N/A"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Bác sĩ:</span>
+                        <span className="font-medium">
+                          {appointment.consultant
+                            ? `${appointment.consultant.firstName} ${appointment.consultant.lastName}`
+                            : "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Dịch vụ:</span>
+                        <span className="font-medium">
+                          {appointment.services?.[0]?.name || "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Ghi chú:</span>
+                        <span className="font-medium">
+                          {appointment.notes || "Không có"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="mb-2">
-              Tổng chi phí:{" "}
-              <span className="font-bold text-primary">
-                {estimatedCost?.toLocaleString() || "0"}đ
-              </span>
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setStep(0);
+                  setSelectedServiceIds([]);
+                  setSelectedDate(undefined);
+                  setSelectedTime("");
+                  setNotes("");
+                  setBookingResult(null);
+                }}
+              >
+                Đặt thêm xét nghiệm khác
+              </Button>
+              <Button
+                className="btn-primary"
+                onClick={() => (window.location.href = "/profile/appointments")}
+              >
+                Xem lịch hẹn của tôi
+              </Button>
             </div>
-            <div className="mb-2">
-              Thời gian dự kiến có kết quả:{" "}
-              <span className="font-medium">{estimatedDuration || "N/A"}</span>
-            </div>
-            <Button
-              className="mt-4"
-              onClick={() => {
-                setStep(0);
-                setSelectedServiceIds([]);
-                setSelectedDate(undefined);
-                setSelectedTime("");
-                setNotes("");
-                setBookingResult(null);
-              }}
-            >
-              Đặt thêm xét nghiệm khác
-            </Button>
           </div>
         )}
       </div>

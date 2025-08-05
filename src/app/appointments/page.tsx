@@ -1,9 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -13,23 +22,12 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { AppointmentService } from "@/services/appointment.service";
-import { STITestingService } from "@/services/sti-testing.service";
 import { APIService, Service } from "@/services/service.service";
-import { useSearchParams, useRouter } from "next/navigation";
-import { DayPicker } from "react-day-picker";
-import "react-day-picker/dist/style.css";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Loader2, CheckCircle } from "lucide-react";
+import { STITestingService } from "@/services/sti-testing.service";
+import { CheckCircle, Loader2 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 // API: Get available slots (for consultant-required services)
 async function getAvailableSlots({
@@ -87,9 +85,10 @@ export default function AppointmentsPage() {
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
   const [isBookingLoading, setIsBookingLoading] = useState(false);
-  const [bookedAppointmentId, setBookedAppointmentId] = useState<string | null>(null);
+  const [bookedAppointmentId, setBookedAppointmentId] = useState<string | null>(
+    null
+  );
   const [bookedChatId, setBookedChatId] = useState<string | null>(null);
-
 
   useEffect(() => {
     setLoadingServices(true);
@@ -98,7 +97,10 @@ export default function AppointmentsPage() {
         if (Array.isArray(data)) {
           setServices(data);
         } else {
-          console.error("[AppointmentsPage] Expected an array from APIService.getAll(), but received:", data);
+          console.error(
+            "[AppointmentsPage] Expected an array from APIService.getAll(), but received:",
+            data
+          );
           setServices([]);
         }
       })
@@ -127,7 +129,8 @@ export default function AppointmentsPage() {
         } else {
           toast({
             title: "Dịch vụ không khả dụng",
-            description: "Dịch vụ bạn chọn không thể tải hoặc không còn khả dụng. Vui lòng chọn dịch vụ khác.",
+            description:
+              "Dịch vụ bạn chọn không thể tải hoặc không còn khả dụng. Vui lòng chọn dịch vụ khác.",
             variant: "destructive",
           });
         }
@@ -135,8 +138,9 @@ export default function AppointmentsPage() {
     }
   }, [loadingServices, services, searchParams, toast]);
 
-  const selectedServices = services
-    .filter((s) => selectedServiceIds.includes(s.id));
+  const selectedServices = services.filter((s) =>
+    selectedServiceIds.includes(s.id)
+  );
 
   const needsConsultant = selectedServices.some((s) => s.requiresConsultant);
 
@@ -237,8 +241,10 @@ export default function AppointmentsPage() {
     }
 
     try {
-      const firstSelectedService = services.find((s) => selectedServiceIds.includes(s.id));
-      const isStiService = firstSelectedService?.type === 'STI_TEST';
+      const firstSelectedService = services.find((s) =>
+        selectedServiceIds.includes(s.id)
+      );
+      const isStiService = firstSelectedService?.type === "STI_TEST";
 
       let response;
       if (isStiService) {
@@ -258,11 +264,11 @@ export default function AppointmentsPage() {
           selectedDate.getDate(),
         ];
         const [hour, minute] = selectedTime.split(":").map(Number);
-        
+
         const localDate = new Date(year, month, day, hour, minute, 0, 0);
-        const pad = (num: number) => num < 10 ? '0' + num : num;
+        const pad = (num: number) => (num < 10 ? "0" + num : num);
         const sampleCollectionDate = `${localDate.getFullYear()}-${pad(localDate.getMonth() + 1)}-${pad(localDate.getDate())}T${pad(localDate.getHours())}:${pad(localDate.getMinutes())}:00`;
-        
+
         const sampleCollectionLocation: "office" = "office";
 
         const stiAppointmentData = {
@@ -273,11 +279,12 @@ export default function AppointmentsPage() {
           notes,
         };
 
-        response = (await STITestingService.createStiAppointment(stiAppointmentData)) as any;
+        response = (await STITestingService.createStiAppointment(
+          stiAppointmentData
+        )) as any;
         console.log("STI Appointment Response:", response);
         setBookedAppointmentId(response.id);
         setBookedChatId(response.chatRoomId ?? null);
-
       } else {
         let appointmentDate = "";
         let consultantId: string | undefined = undefined;
@@ -304,7 +311,7 @@ export default function AppointmentsPage() {
           const [hour, minute] = selectedTime.split(":").map(Number);
 
           const localDate = new Date(year, month, day, hour, minute, 0, 0);
-          const pad = (num: number) => num < 10 ? '0' + num : num;
+          const pad = (num: number) => (num < 10 ? "0" + num : num);
           appointmentDate = `${localDate.getFullYear()}-${pad(localDate.getMonth() + 1)}-${pad(localDate.getDate())}T${pad(localDate.getHours())}:${pad(localDate.getMinutes())}:00`;
         }
 
@@ -316,7 +323,9 @@ export default function AppointmentsPage() {
           notes,
         };
 
-        response = (await AppointmentService.createAppointment(generalAppointmentData)) as any;
+        response = (await AppointmentService.createAppointment(
+          generalAppointmentData
+        )) as any;
         console.log("General Appointment Response:", response);
         setBookedAppointmentId(response.id);
         setBookedChatId(response.chatRoomId ?? null);
@@ -336,7 +345,10 @@ export default function AppointmentsPage() {
       setNotes("");
     } catch (error: any) {
       console.error("Error booking appointment:", error);
-      const errorMessage = error?.response?.data?.message || error?.message || "Không thể đặt lịch. Vui lòng thử lại.";
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Không thể đặt lịch. Vui lòng thử lại.";
       toast({
         title: "Lỗi",
         description: errorMessage,
@@ -359,7 +371,10 @@ export default function AppointmentsPage() {
   };
 
   const handleGoToPayment = () => {
-    console.log("Attempting to go to payment. bookedAppointmentId:", bookedAppointmentId);
+    console.log(
+      "Attempting to go to payment. bookedAppointmentId:",
+      bookedAppointmentId
+    );
     if (bookedAppointmentId) {
       router.push(`/appointments/payment?appointmentId=${bookedAppointmentId}`);
     } else {
@@ -430,8 +445,7 @@ export default function AppointmentsPage() {
           </div>
         )}
         <div>
-          <span className="font-semibold">Nơi chốn:</span>{" "}
-          Online
+          <span className="font-semibold">Nơi chốn:</span> Online
         </div>
         {notes && (
           <div>
@@ -444,7 +458,10 @@ export default function AppointmentsPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-10">
-      <h1 className="text-4xl md:text-5xl font-extrabold text-primary drop-shadow-sm tracking-tight mb-10" aria-label="Đặt lịch hẹn">
+      <h1
+        className="text-4xl md:text-5xl font-extrabold text-primary drop-shadow-sm tracking-tight mb-10"
+        aria-label="Đặt lịch hẹn"
+      >
         <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
           Đặt lịch hẹn
         </span>
@@ -459,9 +476,20 @@ export default function AppointmentsPage() {
               {/* Bước 1: Chọn dịch vụ */}
               {step === 1 && (
                 <div>
-                  <h2 className="text-xl font-bold mb-4" aria-label="Bước 1: Chọn dịch vụ">1. Chọn dịch vụ</h2>
+                  <h2
+                    className="text-xl font-bold mb-4"
+                    aria-label="Bước 1: Chọn dịch vụ"
+                  >
+                    1. Chọn dịch vụ
+                  </h2>
                   {loadingServices ? (
-                    <div className="text-center py-8" role="status" aria-live="polite">Đang tải dịch vụ...</div>
+                    <div
+                      className="text-center py-8"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      Đang tải dịch vụ...
+                    </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {services.map((item) => (
@@ -469,17 +497,20 @@ export default function AppointmentsPage() {
                           key={item.id}
                           className={`rounded-xl border p-4 flex flex-col gap-2 shadow-sm transition cursor-pointer hover:border-primary ${selectedServiceIds.includes(item.id) ? "border-primary bg-primary/5" : ""}`}
                           onClick={() => {
-                            const isStiServiceType = item.type === 'STI_TEST';
-                            const hasStiServiceSelected = selectedServices.some(s => s.type === 'STI_TEST');
+                            const isStiServiceType = item.type === "STI_TEST";
+                            const hasStiServiceSelected = selectedServices.some(
+                              (s) => s.type === "STI_TEST"
+                            );
 
                             if (isStiServiceType) {
-                              setSelectedServiceIds(prev =>
+                              setSelectedServiceIds((prev) =>
                                 prev.includes(item.id) ? [] : [item.id]
                               );
                             } else if (hasStiServiceSelected) {
                               toast({
                                 title: "Lưu ý",
-                                description: "Bạn không thể chọn dịch vụ khác khi đã chọn dịch vụ xét nghiệm STI.",
+                                description:
+                                  "Bạn không thể chọn dịch vụ khác khi đã chọn dịch vụ xét nghiệm STI.",
                                 variant: "default",
                               });
                             } else {
@@ -492,18 +523,22 @@ export default function AppointmentsPage() {
                           }}
                           tabIndex={0}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              const isStiServiceType = item.type === 'STI_TEST';
-                              const hasStiServiceSelected = selectedServices.some(s => s.type === 'STI_TEST');
+                            if (e.key === "Enter" || e.key === " ") {
+                              const isStiServiceType = item.type === "STI_TEST";
+                              const hasStiServiceSelected =
+                                selectedServices.some(
+                                  (s) => s.type === "STI_TEST"
+                                );
 
                               if (isStiServiceType) {
-                                setSelectedServiceIds(prev =>
+                                setSelectedServiceIds((prev) =>
                                   prev.includes(item.id) ? [] : [item.id]
                                 );
                               } else if (hasStiServiceSelected) {
                                 toast({
                                   title: "Lưu ý",
-                                  description: "Bạn không thể chọn dịch vụ khác khi đã chọn dịch vụ xét nghiệm STI.",
+                                  description:
+                                    "Bạn không thể chọn dịch vụ khác khi đã chọn dịch vụ xét nghiệm STI.",
                                   variant: "default",
                                 });
                               } else {
@@ -566,14 +601,19 @@ export default function AppointmentsPage() {
               {/* Bước 2: Chọn ngày */}
               {step === 2 && (
                 <div>
-                  <h2 className="text-xl font-bold mb-4" aria-label="Bước 2: Chọn ngày">2. Chọn ngày</h2>
+                  <h2
+                    className="text-xl font-bold mb-4"
+                    aria-label="Bước 2: Chọn ngày"
+                  >
+                    2. Chọn ngày
+                  </h2>
                   <div className="flex flex-col md:flex-row gap-8">
                     <div>
-                      <DayPicker
+                      <Calendar
                         mode="single"
                         selected={selectedDate}
                         onSelect={setSelectedDate}
-                        fromDate={new Date()}
+                        hidden={{ before: new Date() }}
                         modifiers={{
                           available: (date) => {
                             if (needsConsultant && availableSlots.length > 0) {
@@ -652,56 +692,86 @@ export default function AppointmentsPage() {
               {/* Bước 3: Chọn giờ & tư vấn viên */}
               {step === 3 && (
                 <div>
-                  <h2 className="text-xl font-bold mb-4" aria-label="Bước 3: Chọn khung giờ và tư vấn viên">
+                  <h2
+                    className="text-xl font-bold mb-4"
+                    aria-label="Bước 3: Chọn khung giờ và tư vấn viên"
+                  >
                     3. Chọn khung giờ & tư vấn viên
                   </h2>
                   {needsConsultant ? (
                     <div>
                       {loadingSlots ? (
-                        <div className="text-center py-8" role="status" aria-live="polite">Đang tải slot...</div>
+                        <div
+                          className="text-center py-8"
+                          role="status"
+                          aria-live="polite"
+                        >
+                          Đang tải slot...
+                        </div>
                       ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {(() => {
                             if (!selectedDate) return null;
 
-                            const filteredSlots = availableSlots.filter((slot) => {
-                              const slotDateLocal = new Date(slot.dateTime).toLocaleDateString();
-                              const selectedDateLocal = selectedDate.toLocaleDateString();
-                              return slotDateLocal === selectedDateLocal;
-                            });
+                            const filteredSlots = availableSlots.filter(
+                              (slot) => {
+                                const slotDateLocal = new Date(
+                                  slot.dateTime
+                                ).toLocaleDateString();
+                                const selectedDateLocal =
+                                  selectedDate.toLocaleDateString();
+                                return slotDateLocal === selectedDateLocal;
+                              }
+                            );
 
                             const formatTimeKey = (date: Date): string => {
-                              const hour = date.getHours().toString().padStart(2, '0');
-                              const minute = date.getMinutes().toString().padStart(2, '0');
+                              const hour = date
+                                .getHours()
+                                .toString()
+                                .padStart(2, "0");
+                              const minute = date
+                                .getMinutes()
+                                .toString()
+                                .padStart(2, "0");
                               return `${hour}:${minute}`;
                             };
 
-                            const groupedSlots = filteredSlots.reduce((acc: any, slot) => {
-                              const dateObj = new Date(slot.dateTime);
-                              const normalizedDate = new Date(
-                                dateObj.getFullYear(),
-                                dateObj.getMonth(),
-                                dateObj.getDate(),
-                                dateObj.getHours(),
-                                dateObj.getMinutes()
-                              );
-                              const timeKey = formatTimeKey(normalizedDate);
+                            const groupedSlots = filteredSlots.reduce(
+                              (acc: any, slot) => {
+                                const dateObj = new Date(slot.dateTime);
+                                const normalizedDate = new Date(
+                                  dateObj.getFullYear(),
+                                  dateObj.getMonth(),
+                                  dateObj.getDate(),
+                                  dateObj.getHours(),
+                                  dateObj.getMinutes()
+                                );
+                                const timeKey = formatTimeKey(normalizedDate);
 
-                              if (!acc[timeKey]) {
-                                acc[timeKey] = {
-                                  displayTime: timeKey,
-                                  totalRemainingSlots: 0,
-                                  originalSlots: [],
-                                };
-                              }
-                              acc[timeKey].totalRemainingSlots += slot.remainingSlots;
-                              acc[timeKey].originalSlots.push(slot);
-                              return acc;
-                            }, {});
+                                if (!acc[timeKey]) {
+                                  acc[timeKey] = {
+                                    displayTime: timeKey,
+                                    totalRemainingSlots: 0,
+                                    originalSlots: [],
+                                  };
+                                }
+                                acc[timeKey].totalRemainingSlots +=
+                                  slot.remainingSlots;
+                                acc[timeKey].originalSlots.push(slot);
+                                return acc;
+                              },
+                              {}
+                            );
 
-                            const sortedGroupedSlots = Object.values(groupedSlots).sort((a: any, b: any) => {
-                              const [aHour, aMinute] = a.displayTime.split(':').map(Number);
-                              const [bHour, bMinute] = b.displayTime.split(':').map(Number);
+                            const sortedGroupedSlots = Object.values(
+                              groupedSlots
+                            ).sort((a: any, b: any) => {
+                              const [aHour, aMinute] = a.displayTime
+                                .split(":")
+                                .map(Number);
+                              const [bHour, bMinute] = b.displayTime
+                                .split(":")
+                                .map(Number);
                               if (aHour !== bHour) return aHour - bHour;
                               return aMinute - bMinute;
                             });
@@ -711,13 +781,15 @@ export default function AppointmentsPage() {
                                 key={group.displayTime}
                                 className={`flex items-center gap-4 p-4 border rounded-xl shadow-sm cursor-pointer transition hover:border-primary ${
                                   selectedSlot &&
-                                  formatTimeKey(new Date(selectedSlot.dateTime)) === group.displayTime
+                                  formatTimeKey(
+                                    new Date(selectedSlot.dateTime)
+                                  ) === group.displayTime
                                     ? "border-primary bg-primary/5"
                                     : ""
                                 }`}
                                 tabIndex={0}
                                 onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
+                                  if (e.key === "Enter" || e.key === " ") {
                                     setSelectedSlot(group.originalSlots[0]);
                                   }
                                 }}
@@ -728,9 +800,13 @@ export default function AppointmentsPage() {
                                   name="slot"
                                   checked={Boolean(
                                     selectedSlot &&
-                                    formatTimeKey(new Date(selectedSlot.dateTime)) === group.displayTime
+                                      formatTimeKey(
+                                        new Date(selectedSlot.dateTime)
+                                      ) === group.displayTime
                                   )}
-                                  onChange={() => setSelectedSlot(group.originalSlots[0])}
+                                  onChange={() =>
+                                    setSelectedSlot(group.originalSlots[0])
+                                  }
                                   className="accent-primary w-5 h-5"
                                   aria-hidden="true"
                                 />
@@ -769,12 +845,17 @@ export default function AppointmentsPage() {
                   ) : (
                     <div>
                       <div className="mb-4">
-                        <label className="font-medium" htmlFor="time-select">Chọn giờ</label>
+                        <label className="font-medium" htmlFor="time-select">
+                          Chọn giờ
+                        </label>
                         <Select
                           value={selectedTime}
                           onValueChange={setSelectedTime}
                         >
-                          <SelectTrigger id="time-select" aria-label="Chọn giờ hẹn">
+                          <SelectTrigger
+                            id="time-select"
+                            aria-label="Chọn giờ hẹn"
+                          >
                             <SelectValue placeholder="Chọn giờ" />
                           </SelectTrigger>
                           <SelectContent>
@@ -813,11 +894,16 @@ export default function AppointmentsPage() {
               {/* Bước 4: Ghi chú và xác nhận */}
               {step === 4 && (
                 <div>
-                  <h2 className="text-xl font-bold mb-4" aria-label="Bước 4: Ghi chú và Xác nhận">
+                  <h2
+                    className="text-xl font-bold mb-4"
+                    aria-label="Bước 4: Ghi chú và Xác nhận"
+                  >
                     4. Ghi chú và Xác nhận
                   </h2>
                   <div className="mb-4">
-                    <label className="font-medium" htmlFor="notes-textarea">Ghi chú</label>
+                    <label className="font-medium" htmlFor="notes-textarea">
+                      Ghi chú
+                    </label>
                     <Textarea
                       id="notes-textarea"
                       placeholder="Nhập ghi chú cho buổi hẹn..."
@@ -847,8 +933,15 @@ export default function AppointmentsPage() {
               )}
               {/* Bước 5: Thông báo kết quả */}
               {step === 5 && (
-                <div className="space-y-4 text-center" role="status" aria-live="polite">
-                  <h2 className="text-2xl font-bold text-green-600" aria-label="Đặt lịch thành công!">
+                <div
+                  className="space-y-4 text-center"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <h2
+                    className="text-2xl font-bold text-green-600"
+                    aria-label="Đặt lịch thành công!"
+                  >
                     Đặt lịch thành công!
                   </h2>
                   <p>Lịch hẹn của bạn đã được đặt thành công.</p>
@@ -879,17 +972,27 @@ export default function AppointmentsPage() {
               {selectedDate?.toLocaleDateString("vi-VN")} lúc{" "}
               {needsConsultant
                 ? selectedSlot?.dateTime
-                  ? new Date(selectedSlot.dateTime).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })
+                  ? new Date(selectedSlot.dateTime).toLocaleTimeString(
+                      "vi-VN",
+                      { hour: "2-digit", minute: "2-digit" }
+                    )
                   : ""
                 : selectedTime}
               {needsConsultant && selectedSlot?.consultant && (
-                <> với tư vấn viên {selectedSlot.consultant.lastName} {selectedSlot.consultant.firstName}</>
+                <>
+                  {" "}
+                  với tư vấn viên {selectedSlot.consultant.lastName}{" "}
+                  {selectedSlot.consultant.firstName}
+                </>
               )}
               ?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsConfirmDialogOpen(false)}
+            >
               Hủy
             </Button>
             <Button onClick={handleConfirmBooking} disabled={isBookingLoading}>
@@ -925,11 +1028,19 @@ export default function AppointmentsPage() {
               </Button>
             )}
             {bookedChatId && (
-              <Button onClick={handleGoToChat} className="w-full sm:w-auto" variant="outline">
+              <Button
+                onClick={handleGoToChat}
+                className="w-full sm:w-auto"
+                variant="outline"
+              >
                 Vào chat ngay
               </Button>
             )}
-            <Button onClick={resetBooking} className="w-full sm:w-auto" variant="secondary">
+            <Button
+              onClick={resetBooking}
+              className="w-full sm:w-auto"
+              variant="secondary"
+            >
               Đặt lịch mới
             </Button>
           </DialogFooter>

@@ -7,12 +7,47 @@ export interface CreateStiAppointmentDto {
 }
 
 export interface Appointment {
-  // Define properties of the Appointment object based on your application's needs
-  // The swagger file indicates it's a generic "Appointment" object,
-  // so I'll put a placeholder. You might need to fill this out more completely
-  // based on other parts of your application that use a full Appointment object.
   id: string;
-  // ... other common appointment properties if available from swagger or other context
+  appointmentDate: string;
+  appointmentLocation: string;
+  cancellationReason: string | null;
+  checkInTime: string | null;
+  checkOutTime: string | null;
+  consultant: {
+    id: string;
+    email: string;
+    googleId: string | null;
+    firstName: string;
+    lastName: string;
+  } | null;
+  consultantSelectionType: string;
+  createdAt: string;
+  deletedAt: string | null;
+  fixedPrice: string;
+  meetingLink: string | null;
+  notes: string | null;
+  reminderSent: boolean;
+  reminderSentAt: string | null;
+  services: Array<{
+    id: string;
+    name: string;
+  }>;
+  status: string;
+  updatedAt: string;
+  user: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    address: string;
+    gender: string;
+    role: {
+      id: string;
+      name: string;
+      description: string;
+    };
+  } | null;
 }
 
 export interface FindAvailableSlotsDto {
@@ -41,7 +76,17 @@ export interface FindAvailableSlotsResponseDto {
 export interface StiProcess {
   id: string;
   testCode: string;
-  status: "ordered" | "sample_collection_scheduled" | "sample_collected" | "processing" | "result_ready" | "result_delivered" | "consultation_required" | "follow_up_scheduled" | "completed" | "cancelled";
+  status:
+    | "ordered"
+    | "sample_collection_scheduled"
+    | "sample_collected"
+    | "processing"
+    | "result_ready"
+    | "result_delivered"
+    | "consultation_required"
+    | "follow_up_scheduled"
+    | "completed"
+    | "cancelled";
   sampleType: "blood" | "urine" | "swab" | "saliva" | "other";
   priority: "normal" | "high" | "urgent";
   estimatedResultDate: string | null;
@@ -92,5 +137,15 @@ export interface StiProcess {
 }
 
 export interface UpdateStiProcessStatusDto {
-  status: "ordered" | "sample_collection_scheduled" | "sample_collected" | "processing" | "result_ready" | "result_delivered" | "consultation_required" | "follow_up_scheduled" | "completed" | "cancelled";
+  status:
+    | "ordered"
+    | "sample_collection_scheduled"
+    | "sample_collected"
+    | "processing"
+    | "result_ready"
+    | "result_delivered"
+    | "consultation_required"
+    | "follow_up_scheduled"
+    | "completed"
+    | "cancelled";
 }
