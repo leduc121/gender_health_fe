@@ -1,22 +1,25 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { useState } from "react";
 
 export default function ApiTestPage() {
   const [results, setResults] = useState<any>({});
   const [loading, setLoading] = useState<string | null>(null);
 
-  const testEndpoint = async (endpoint: string, method: string = "GET", body?: any) => {
+  const testEndpoint = async (
+    endpoint: string,
+    method: string = "GET",
+    body?: any
+  ) => {
     setLoading(endpoint);
     try {
-      const url = `https://gender-healthcare.org${endpoint}`;
+      const url = `https://genderhealthcare.uk${endpoint}`;
       console.log(`Testing ${method} ${url}`);
-      
+
       const options: RequestInit = {
         method,
         headers: {
@@ -30,7 +33,7 @@ export default function ApiTestPage() {
 
       const response = await fetch(url, options);
       const data = await response.json();
-      
+
       setResults((prev: any) => ({
         ...prev,
         [endpoint]: {
@@ -38,14 +41,14 @@ export default function ApiTestPage() {
           statusText: response.statusText,
           data: data,
           headers: Object.fromEntries(response.headers.entries()),
-        }
+        },
       }));
     } catch (error) {
       setResults((prev: any) => ({
         ...prev,
         [endpoint]: {
-          error: error instanceof Error ? error.message : "Unknown error"
-        }
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
       }));
     } finally {
       setLoading(null);
@@ -67,7 +70,7 @@ export default function ApiTestPage() {
   return (
     <div className="container mx-auto p-6">
       <h1 className="text-2xl font-bold mb-6">API Test Page</h1>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <Card>
           <CardHeader>
@@ -102,16 +105,18 @@ export default function ApiTestPage() {
                   id="custom-endpoint"
                   placeholder="/api/custom-endpoint"
                   onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === "Enter") {
                       const endpoint = (e.target as HTMLInputElement).value;
                       if (endpoint) testEndpoint(endpoint);
                     }
                   }}
                 />
               </div>
-              <Button 
+              <Button
                 onClick={() => {
-                  const input = document.getElementById('custom-endpoint') as HTMLInputElement;
+                  const input = document.getElementById(
+                    "custom-endpoint"
+                  ) as HTMLInputElement;
                   if (input?.value) testEndpoint(input.value);
                 }}
                 className="w-full"
@@ -148,14 +153,14 @@ export default function ApiTestPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <Button 
-              onClick={() => window.location.href = '/profile/appointments'}
+            <Button
+              onClick={() => (window.location.href = "/profile/appointments")}
               className="w-full"
             >
               Test Navigation to "Lịch tư vấn của tôi"
             </Button>
-            <Button 
-              onClick={() => console.log('Current cookies:', document.cookie)}
+            <Button
+              onClick={() => console.log("Current cookies:", document.cookie)}
               className="w-full"
               variant="outline"
             >

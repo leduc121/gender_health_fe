@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import {
   Card,
@@ -10,9 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +20,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -29,20 +27,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import {
-  CalendarIcon,
-  Clock,
-  MapPin,
-  Star,
-  CheckCircle,
-  Loader2,
-} from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import {
-  ConsultantService,
   ConsultantProfile,
+  ConsultantService,
 } from "@/services/consultant.service";
+import {
+  CalendarIcon,
+  CheckCircle,
+  Clock,
+  Loader2,
+  MapPin,
+  Star,
+} from "lucide-react";
+import React, { useEffect, useState } from "react";
 
 // Types
 import { ConsultantAvailability } from "@/services/consultant.service";
@@ -73,8 +73,9 @@ const ErrorMessage: React.FC<{ message: string }> = ({ message }) => (
 const AppointmentBooking: React.FC = (): JSX.Element => {
   const { toast } = useToast();
   const [consultants, setConsultants] = useState<ConsultantProfile[]>([]);
-  const [selectedConsultant, setSelectedConsultant] =
-    useState<(ConsultantProfile & { availability?: ConsultantAvailability[] }) | null>(null);
+  const [selectedConsultant, setSelectedConsultant] = useState<
+    (ConsultantProfile & { availability?: ConsultantAvailability[] }) | null
+  >(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     new Date()
   );
@@ -98,7 +99,7 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
       setIsLoadingConsultants(true);
       setError(null);
       try {
-        const data:any = await ConsultantService.getAll();
+        const data: any = await ConsultantService.getAll();
         setConsultants(data.data.data);
       } catch (error) {
         const message =
@@ -120,7 +121,7 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
     setIsLoadingAppointments(true);
     try {
       const response = await fetch(
-        "https://gender-healthcare.org/api/appointments"
+        "https://genderhealthcare.uk/api/appointments"
       );
       if (!response.ok) throw new Error("Failed to fetch appointments");
       const data = await response.json();
@@ -143,7 +144,10 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
   const handleConsultantSelect = async (consultant: ConsultantProfile) => {
     setIsLoadingAvailability(true);
     try {
-      const availability = await ConsultantService.findConsultantAvailableSlots(consultant.id, selectedDate || new Date());
+      const availability = await ConsultantService.findConsultantAvailableSlots(
+        consultant.id,
+        selectedDate || new Date()
+      );
       setSelectedConsultant({ ...consultant, availability });
       setBookingStep(2);
     } catch (error) {
@@ -188,7 +192,7 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
       appointmentDate.setHours(hours, minutes, 0, 0);
 
       const response = await fetch(
-        "https://gender-healthcare.org/api/appointments",
+        "https://genderhealthcare.uk/api/appointments",
         {
           method: "POST",
           headers: {
@@ -228,7 +232,7 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
   const handleCancelAppointment = async (appointmentId: string) => {
     try {
       const response = await fetch(
-        `https://gender-healthcare.org/api/appointments/${appointmentId}/cancel`,
+        `https://genderhealthcare.uk/api/appointments/${appointmentId}/cancel`,
         { method: "POST" }
       );
 
@@ -415,28 +419,32 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                   <div className="md:w-2/3">
                     <Card className="shadow-lg">
                       <CardHeader>
-                        <CardTitle className="text-2xl font-bold text-primary">Chọn ngày và giờ</CardTitle>
+                        <CardTitle className="text-2xl font-bold text-primary">
+                          Chọn ngày và giờ
+                        </CardTitle>
                         <CardDescription>
                           Chọn thời gian phù hợp cho buổi tư vấn của bạn
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
                         <div>
-                          <h4 className="font-semibold text-lg mb-3 text-center">Chọn ngày</h4>
+                          <h4 className="font-semibold text-lg mb-3 text-center">
+                            Chọn ngày
+                          </h4>
                           <div className="p-3 bg-muted/50 rounded-2xl">
-                          <CalendarComponent
-                            mode="single"
-                            selected={selectedDate}
-                            onSelect={handleDateSelect}
-                            className="rounded-md"
-                            disabled={(date: Date) => {
-                              const today = new Date();
-                              today.setHours(0, 0, 0, 0);
-                              const maxDate = new Date();
-                              maxDate.setDate(today.getDate() + 30);
-                              return date < today || date > maxDate;
-                            }}
-                          />
+                            <CalendarComponent
+                              mode="single"
+                              selected={selectedDate}
+                              onSelect={handleDateSelect}
+                              className="rounded-md"
+                              disabled={(date: Date) => {
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                const maxDate = new Date();
+                                maxDate.setDate(today.getDate() + 30);
+                                return date < today || date > maxDate;
+                              }}
+                            />
                           </div>
                         </div>
                         <div className="border-l border-border pl-6">
@@ -492,29 +500,29 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex items-center">
-                  <Avatar className="h-12 w-12 mr-4">
-                    <AvatarImage
-                      src={selectedConsultant.user.profilePicture}
-                      alt={`${selectedConsultant.user.firstName} ${selectedConsultant.user.lastName}`}
-                    />
-                    <AvatarFallback>
-                      {selectedConsultant.user.firstName[0]}
-                      {selectedConsultant.user.lastName[0]}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h4 className="font-medium">
-                      {`${selectedConsultant.user.firstName} ${selectedConsultant.user.lastName}`}
-                    </h4>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedConsultant.specialties.join(", ")}
-                    </p>
-                  </div>
-                </div>
+                      <Avatar className="h-12 w-12 mr-4">
+                        <AvatarImage
+                          src={selectedConsultant.user.profilePicture}
+                          alt={`${selectedConsultant.user.firstName} ${selectedConsultant.user.lastName}`}
+                        />
+                        <AvatarFallback>
+                          {selectedConsultant.user.firstName[0]}
+                          {selectedConsultant.user.lastName[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h4 className="font-medium">
+                          {`${selectedConsultant.user.firstName} ${selectedConsultant.user.lastName}`}
+                        </h4>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedConsultant.specialties.join(", ")}
+                        </p>
+                      </div>
+                    </div>
 
-                <div className="flex items-center">
-                  <CalendarIcon className="h-4 w-4 mr-2 text-muted-foreground" />
-                  <span>
+                    <div className="flex items-center">
+                      <CalendarIcon className="h-4 w-4 mr-2 text-muted-foreground" />
+                      <span>
                         {selectedDate?.toLocaleDateString("vi-VN", {
                           weekday: "long",
                           year: "numeric",
@@ -522,85 +530,85 @@ const AppointmentBooking: React.FC = (): JSX.Element => {
                           day: "numeric",
                         })}
                       </span>
-                </div>
+                    </div>
 
-                <div className="flex items-center">
-                  <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                  <span>{selectedTime}</span>
-                </div>
+                    <div className="flex items-center">
+                      <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
+                      <span>{selectedTime}</span>
+                    </div>
 
-                <div className="flex items-center">
-                  <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
-                  <span>Tư vấn trực tuyến</span>
-                </div>
+                    <div className="flex items-center">
+                      <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
+                      <span>Tư vấn trực tuyến</span>
+                    </div>
 
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setBookingStep(2)}
-                >
-                  Đổi ngày/giờ
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setBookingStep(2)}
+                    >
+                      Đổi ngày/giờ
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
 
-          <div className="md:w-2/3">
-            <Card>
-              <CardHeader>
-                <CardTitle>Chi tiết buổi tư vấn</CardTitle>
-                <CardDescription>
-                  Vui lòng cung cấp thông tin chi tiết về buổi tư vấn
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Loại tư vấn</label>
-                  <Select
-                    value={consultationType}
-                    onValueChange={setConsultationType}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn loại tư vấn" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="general">
-                        Sức khỏe sinh sản
-                      </SelectItem>
-                      <SelectItem value="contraception">
-                        Tư vấn tránh thai
-                      </SelectItem>
-                      <SelectItem value="sti">
-                        Bệnh lây truyền qua đường tình dục
-                      </SelectItem>
-                      <SelectItem value="reproductive">
-                        Kế hoạch hóa gia đình
-                      </SelectItem>
-                      <SelectItem value="other">Khác</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="md:w-2/3">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Chi tiết buổi tư vấn</CardTitle>
+                    <CardDescription>
+                      Vui lòng cung cấp thông tin chi tiết về buổi tư vấn
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Loại tư vấn</label>
+                      <Select
+                        value={consultationType}
+                        onValueChange={setConsultationType}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Chọn loại tư vấn" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="general">
+                            Sức khỏe sinh sản
+                          </SelectItem>
+                          <SelectItem value="contraception">
+                            Tư vấn tránh thai
+                          </SelectItem>
+                          <SelectItem value="sti">
+                            Bệnh lây truyền qua đường tình dục
+                          </SelectItem>
+                          <SelectItem value="reproductive">
+                            Kế hoạch hóa gia đình
+                          </SelectItem>
+                          <SelectItem value="other">Khác</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Chi tiết</label>
-                  <Textarea
-                    placeholder="Mô tả vấn đề bạn muốn tư vấn..."
-                    value={consultationDetails}
-                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                      setConsultationDetails(e.target.value)
-                    }
-                    rows={5}
-                  />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onClick={handleDetailsSubmit}>
-                  Xác nhận đặt lịch
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
-        </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Chi tiết</label>
+                      <Textarea
+                        placeholder="Mô tả vấn đề bạn muốn tư vấn..."
+                        value={consultationDetails}
+                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                          setConsultationDetails(e.target.value)
+                        }
+                        rows={5}
+                      />
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button className="w-full" onClick={handleDetailsSubmit}>
+                      Xác nhận đặt lịch
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </div>
+            </div>
           )}
 
           {bookingStep === 4 && (
