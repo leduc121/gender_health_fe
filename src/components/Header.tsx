@@ -1,24 +1,22 @@
 "use client";
 
+import AuthDialog from "@/components/AuthDialog";
 import { MainNav } from "@/components/main-nav";
 import { ThemeSwitcher } from "@/components/theme-switcher";
-import AuthDialog from "@/components/AuthDialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
 import {
   DropdownMenu,
-  DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from "@/contexts/AuthContext";
+import { Calendar, LayoutDashboard, LogOut, User } from "lucide-react";
 import Link from "next/link";
-import { LogOut, User, Calendar, MessageSquare, LayoutDashboard, BookOpen, DollarSign } from "lucide-react";
 
 export default function Header() {
   const { user, logout, isAuthenticated, isLoading } = useAuth();
-
-  if (isLoading) return null;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -27,7 +25,9 @@ export default function Header() {
         <div className="flex flex-1 items-center justify-end space-x-4">
           <nav className="flex items-center space-x-2">
             <ThemeSwitcher />
-            {isAuthenticated ? (
+            {isLoading ? (
+              <div className="h-8 w-8 animate-pulse bg-muted rounded-full" />
+            ) : isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -78,7 +78,8 @@ export default function Header() {
                           </Link>
                         </DropdownMenuItem>
                       )}
-                      {((typeof user?.role === "string" && user.role === "consultant") ||
+                      {((typeof user?.role === "string" &&
+                        user.role === "consultant") ||
                         (typeof user?.role === "object" &&
                           user.role?.name === "consultant")) && (
                         <>

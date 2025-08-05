@@ -1,10 +1,9 @@
 "use client";
 
-import * as React from "react";
+import AuthDialog from "@/components/AuthDialog";
+import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
-import AuthDialog from "@/components/AuthDialog";
 
 import { cn } from "@/lib/utils";
 
@@ -46,8 +45,6 @@ export function MainNav() {
     return true;
   });
 
-  if (isLoading) return null; // Optionally handle loading state for main nav
-
   return (
     <div className="mr-4 hidden md:flex">
       <Link href="/" className="mr-6 flex items-center space-x-2">
@@ -58,43 +55,56 @@ export function MainNav() {
         </div>
       </Link>
       <nav className="flex items-center space-x-6 text-sm font-medium">
-        {filteredNavItems.map((item) => {
-          if (item.href === "/sti-testing" && !isAuthenticated) {
-            return (
-              <AuthDialog
-                key={item.href}
-                trigger={
-                  <span
-                    className={cn(
-                      "transition-colors hover:text-foreground/80 cursor-pointer",
-                      pathname === item.href
-                        ? "text-foreground"
-                        : "text-foreground/60"
-                    )}
-                  >
-                    {item.title}
-                  </span>
-                }
+        {isLoading ? (
+          <div className="flex items-center space-x-6">
+            {mainNavItems.map((item, index) => (
+              <div
+                key={index}
+                className="h-4 w-16 animate-pulse bg-muted rounded"
               />
-            );
-          }
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "transition-colors hover:text-foreground/80",
-                pathname === item.href
-                  ? "text-foreground"
-                  : "text-foreground/60"
-              )}
-            >
-              {item.title}
-            </Link>
-          );
-        })}
+            ))}
+          </div>
+        ) : (
+          <>
+            {filteredNavItems.map((item) => {
+              if (item.href === "/sti-testing" && !isAuthenticated) {
+                return (
+                  <AuthDialog
+                    key={item.href}
+                    trigger={
+                      <span
+                        className={cn(
+                          "transition-colors hover:text-foreground/80 cursor-pointer",
+                          pathname === item.href
+                            ? "text-foreground"
+                            : "text-foreground/60"
+                        )}
+                      >
+                        {item.title}
+                      </span>
+                    }
+                  />
+                );
+              }
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "transition-colors hover:text-foreground/80",
+                    pathname === item.href
+                      ? "text-foreground"
+                      : "text-foreground/60"
+                  )}
+                >
+                  {item.title}
+                </Link>
+              );
+            })}
 
-        <div className="flex items-center space-x-4"></div>
+            <div className="flex items-center space-x-4"></div>
+          </>
+        )}
       </nav>
     </div>
   );

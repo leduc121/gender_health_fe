@@ -1,18 +1,17 @@
 "use client";
 
+import { useToast } from "@/components/ui/use-toast";
+import { API_ENDPOINTS } from "@/config/api";
+import { apiClient } from "@/services/api";
+import { User } from "@/services/user.service"; // Import User from user.service
+import { useRouter } from "next/navigation";
 import React, {
   createContext,
-  useContext,
-  useState,
-  useEffect,
   useCallback,
+  useContext,
+  useEffect,
+  useState,
 } from "react";
-import { useRouter } from "next/navigation";
-import { useToast } from "@/components/ui/use-toast";
-import { apiClient } from "@/services/api";
-import { API_ENDPOINTS } from "@/config/api";
-import { User } from "@/services/user.service"; // Import User from user.service
-import { ConsultantProfile } from "@/services/consultant.service"; // Import ConsultantProfile
 
 export type { User };
 
@@ -33,7 +32,8 @@ interface RefreshTokenResponse {
   refreshToken: string;
 }
 
-export interface RegisterDto { // Export the interface
+export interface RegisterDto {
+  // Export the interface
   email: string;
   password: string;
   firstName: string;
@@ -65,9 +65,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    
+
     console.log("[AuthContext] Initializing...");
-    
+
     const accessToken = localStorage.getItem("accessToken");
     if (accessToken) {
       console.log("[AuthContext] Found access token, setting headers");
@@ -110,7 +110,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("[AuthContext] Auth successful:", userData);
       const userWithFullName = {
         ...userData,
-        fullName: `${userData.firstName || ""} ${userData.lastName || ""}`.trim(),
+        fullName:
+          `${userData.firstName || ""} ${userData.lastName || ""}`.trim(),
       };
       setUser(userWithFullName);
       // Set cookie với token thật
@@ -129,7 +130,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log("[AuthContext] Auth successful after refresh:", userData);
           const userWithFullNameAfterRefresh = {
             ...userData,
-            fullName: `${userData.firstName || ""} ${userData.lastName || ""}`.trim(),
+            fullName:
+              `${userData.firstName || ""} ${userData.lastName || ""}`.trim(),
           };
           setUser(userWithFullNameAfterRefresh);
           const accessToken = localStorage.getItem("accessToken");
@@ -170,7 +172,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const freshUser = await apiClient.get<User>("/users/me");
         const freshUserWithFullName = {
           ...freshUser,
-          fullName: `${freshUser.firstName || ""} ${freshUser.lastName || ""}`.trim(),
+          fullName:
+            `${freshUser.firstName || ""} ${freshUser.lastName || ""}`.trim(),
         };
         setUser(freshUserWithFullName);
         localStorage.setItem("userId", freshUser.id);
@@ -185,7 +188,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: "Chào mừng bạn quay trở lại!",
       });
       // Redirect based on user role
-      const userRole = typeof data.user.role === "object" ? data.user.role.name : data.user.role;
+      const userRole =
+        typeof data.user.role === "object"
+          ? data.user.role.name
+          : data.user.role;
       if (data && data.user && userRole === "admin") {
         router.push("/admin");
       } else if (data && data.user && userRole === "consultant") {
@@ -216,9 +222,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       console.error("[AuthContext] Registration error:", error); // Log the full error object
       let errorMessage = "Có lỗi xảy ra";
-      if (error.response && error.response.data && error.response.data.message) {
+      if (
+        error.response &&
+        error.response.data &&
+        error.response.data.message
+      ) {
         errorMessage = error.response.data.message;
-      } else if (error.message) { // Use error.message for generic errors
+      } else if (error.message) {
+        // Use error.message for generic errors
         errorMessage = error.message;
       }
       toast({
@@ -234,7 +245,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("userId");
-    document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;"; // Clear auth-token cookie
+    document.cookie =
+      "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;"; // Clear auth-token cookie
     apiClient.removeDefaultHeader("Authorization");
     setUser(null);
     router.push("/");
@@ -278,7 +290,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAccessToken,
       }}
     >
-      {isAuthReady ? children : null}
+      {children}
     </AuthContext.Provider>
   );
 }

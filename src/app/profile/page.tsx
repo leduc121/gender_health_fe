@@ -1,14 +1,14 @@
 "use client";
 
-import { useAuth } from "@/contexts/AuthContext";
-import { useState, useRef, useEffect } from "react";
-import { apiClient } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
-import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import { apiClient } from "@/services/api";
 import { Eye, EyeOff } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 export default function ProfilePage() {
   const { user, setUser, isLoading } = useAuth();
@@ -45,8 +45,32 @@ export default function ProfilePage() {
     }
   }, [isLoading, user, router]);
 
-  if (isLoading) return <div>Loading...</div>;
-  if (!user) return null;
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto">
+          <div className="animate-pulse">
+            <div className="h-8 bg-muted rounded w-1/3 mb-6"></div>
+            <div className="space-y-4">
+              <div className="h-4 bg-muted rounded w-full"></div>
+              <div className="h-4 bg-muted rounded w-3/4"></div>
+              <div className="h-4 bg-muted rounded w-1/2"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto text-center">
+          <p>Vui lòng đăng nhập để xem thông tin cá nhân</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
