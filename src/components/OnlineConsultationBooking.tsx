@@ -1,19 +1,17 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import AuthDialog from "@/components/AuthDialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import AuthDialog from "@/components/AuthDialog";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -22,40 +20,37 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
-import {
-  CalendarIcon,
-  Clock,
-  Star,
-  CheckCircle,
-  Loader2,
-  Video,
-  Award,
-  Calendar as CalendarIconSmall,
-  User,
-  MapPin,
-  Phone,
-  MessageSquare,
-  ArrowRight,
-  ArrowLeft,
-  Heart,
-  Shield,
-  Zap,
-} from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { ConsultantService, ConsultantProfile } from "@/services/consultant.service";
-import { AppointmentService } from "@/services/appointment.service"; // Removed Appointment from here
-import { Appointment } from "@/types/api.d"; // Imported Appointment from global types
-import { APIService, Service } from "@/services/service.service"; // Import APIService and Service
 import { useConsultationBooking } from "@/hooks/use-consultation-booking";
-import { format, addDays, isBefore, isToday, isSameDay } from "date-fns";
+import {
+  ConsultantProfile,
+  ConsultantService,
+} from "@/services/consultant.service";
+import { APIService, Service } from "@/services/service.service"; // Import APIService and Service
+import { format, isBefore } from "date-fns";
 import { vi } from "date-fns/locale";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Award,
+  Calendar as CalendarIconSmall,
+  CheckCircle,
+  Clock,
+  Heart,
+  Loader2,
+  MessageSquare,
+  Phone,
+  Shield,
+  Star,
+  Video,
+  Zap,
+} from "lucide-react";
+import React, { useEffect, useState } from "react";
 
 interface TimeSlot {
   id: string; // This will be availabilityId from the API
@@ -112,29 +107,37 @@ const LoadingSpinner: React.FC = () => (
 const OnlineConsultationBooking: React.FC = () => {
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
-  const { bookAppointment, getFieldError, clearErrors, isLoading: isBookingLoading, errors } = useConsultationBooking();
-  
+  const {
+    bookAppointment,
+    getFieldError,
+    clearErrors,
+    isLoading: isBookingLoading,
+    errors,
+  } = useConsultationBooking();
+
   // State management
   const [currentStep, setCurrentStep] = useState(1);
   const [consultants, setConsultants] = useState<ConsultantProfile[]>([]);
-  const [selectedConsultant, setSelectedConsultant] = useState<ConsultantProfile | null>(null);
+  const [selectedConsultant, setSelectedConsultant] =
+    useState<ConsultantProfile | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
   const [consultationReason, setConsultationReason] = useState("");
   const [symptoms, setSymptoms] = useState("");
   const [additionalNotes, setAdditionalNotes] = useState("");
-  const [preferredContactMethod, setPreferredContactMethod] = useState<"video" | "phone" | "chat">("video");
-  
+  const [preferredContactMethod, setPreferredContactMethod] = useState<
+    "video" | "phone" | "chat"
+  >("video");
+
   // New state for services
   const [services, setServices] = useState<Service[]>([]);
-  const [defaultServiceId, setDefaultServiceId] = useState<string | undefined>(undefined);
 
   // Loading states
   const [isLoadingConsultants, setIsLoadingConsultants] = useState(false);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
   const [isLoadingServices, setIsLoadingServices] = useState(false); // New loading state
-  
+
   // Dialog states
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
@@ -147,7 +150,12 @@ const OnlineConsultationBooking: React.FC = () => {
 
   // Fetch available slots when consultant and date are selected
   useEffect(() => {
-    console.log("useEffect for fetchAvailableSlots triggered. selectedConsultant:", selectedConsultant, "selectedDate:", selectedDate);
+    console.log(
+      "useEffect for fetchAvailableSlots triggered. selectedConsultant:",
+      selectedConsultant,
+      "selectedDate:",
+      selectedDate
+    );
     if (selectedConsultant && selectedDate) {
       fetchAvailableSlots();
     }
@@ -178,13 +186,6 @@ const OnlineConsultationBooking: React.FC = () => {
       const response = await APIService.getAll();
       console.log("APIService.getAll response:", response); // New log: inspect full response
       setServices(response.data);
-      // Set the first service as default if available
-      if (response.data.length > 0) {
-        setDefaultServiceId(response.data[0].id);
-        console.log("Default Service ID set to:", response.data[0].id);
-      } else {
-        console.log("No services found, defaultServiceId remains undefined."); // New log
-      }
     } catch (error: any) {
       console.error("Error fetching services:", error);
       toast({
@@ -199,23 +200,27 @@ const OnlineConsultationBooking: React.FC = () => {
 
   const fetchAvailableSlots = async () => {
     if (!selectedConsultant || !selectedDate) {
-      console.log("fetchAvailableSlots skipped: selectedConsultant or selectedDate is missing.");
+      console.log(
+        "fetchAvailableSlots skipped: selectedConsultant or selectedDate is missing."
+      );
       return;
     }
     setIsLoadingSlots(true);
     try {
-    console.log("Fetching availability for:", {
+      console.log("Fetching availability for:", {
         consultantId: selectedConsultant.user.id, // Use consultant's user ID
         selectedDate: selectedDate,
       }); // Log parameters
-      const response: any = await ConsultantService.findConsultantAvailableSlots(
-        selectedConsultant.user.id, // Use consultant's user ID
-        selectedDate,
-        defaultServiceId, // Pass the default service ID
-      );
+      const response: any =
+        await ConsultantService.findConsultantAvailableSlots(
+          selectedConsultant.user.id, // Use consultant's user ID
+          selectedDate
+        );
       console.log("Availability API Raw Response:", response); // Log the raw API response
       // Map the API response to the TimeSlot interface, extracting consultant details
-      const availableSlotsData: TimeSlot[] = Array.isArray(response?.availableSlots)
+      const availableSlotsData: TimeSlot[] = Array.isArray(
+        response?.availableSlots
+      )
         ? response.availableSlots.map((slot: any) => ({
             id: slot.availabilityId,
             time: format(new Date(slot.dateTime), "HH:mm"),
@@ -233,18 +238,21 @@ const OnlineConsultationBooking: React.FC = () => {
             // It is part of the appointment creation, not the availability itself.
           }))
         : [];
-      
+
       console.log("Available Slots from API (mapped):", availableSlotsData);
 
       // Deduplicate slots by time to ensure only unique time options are displayed
-      const uniqueSlots = Array.from(new Map(availableSlotsData.map(slot => [slot.time, slot])).values());
-      
+      const uniqueSlots = Array.from(
+        new Map(availableSlotsData.map((slot) => [slot.time, slot])).values()
+      );
+
       setAvailableSlots(uniqueSlots);
     } catch (error: any) {
       console.error("Error fetching available slots:", error);
       toast({
         title: "Lỗi",
-        description: error.message || "Không thể tải lịch trống của tư vấn viên.",
+        description:
+          error.message || "Không thể tải lịch trống của tư vấn viên.",
         variant: "destructive",
       });
       setAvailableSlots([]);
@@ -299,27 +307,32 @@ const OnlineConsultationBooking: React.FC = () => {
 
   const handleConfirmBooking = async () => {
     if (!selectedConsultant || !selectedDate || !selectedSlot) return;
-    
-    console.log("Attempting to book appointment with consultantId:", selectedConsultant.id);
-    console.log("Attempting to book appointment with consultant.userId:", selectedConsultant.user.id);
+
+    console.log(
+      "Attempting to book appointment with consultantId:",
+      selectedConsultant.id
+    );
+    console.log(
+      "Attempting to book appointment with consultant.userId:",
+      selectedConsultant.user.id
+    );
     console.log("Selected Slot Service ID:", selectedSlot.serviceId);
-    console.log("Default Service ID (from state):", defaultServiceId); // New log
     const serviceIdToUse = ""; // Always use an empty string for serviceId as per requirement
     console.log("Service ID being passed to bookAppointment:", serviceIdToUse); // New log
 
-      const success = await bookAppointment(
-        selectedConsultant,
-        selectedDate,
-        selectedSlot.time,
-        {
-          consultationReason,
-          symptoms,
-          additionalNotes,
-          preferredContactMethod,
-        },
-        serviceIdToUse,
-        undefined // meetingLink is not available from the available slots API
-      );
+    const success = await bookAppointment(
+      selectedConsultant,
+      selectedDate,
+      selectedSlot.time,
+      {
+        consultationReason,
+        symptoms,
+        additionalNotes,
+        preferredContactMethod,
+      },
+      serviceIdToUse,
+      undefined // meetingLink is not available from the available slots API
+    );
 
     if (success) {
       setIsConfirmDialogOpen(false);
@@ -359,7 +372,9 @@ const OnlineConsultationBooking: React.FC = () => {
               </div>
               <div className="ml-3 hidden sm:block">
                 <div className="text-sm font-medium">{step.title}</div>
-                <div className="text-xs text-muted-foreground">{step.description}</div>
+                <div className="text-xs text-muted-foreground">
+                  {step.description}
+                </div>
               </div>
             </div>
             {index < BOOKING_STEPS.length - 1 && (
@@ -369,7 +384,10 @@ const OnlineConsultationBooking: React.FC = () => {
         ))}
       </div>
       <div className="mt-4">
-        <Progress value={(currentStep / BOOKING_STEPS.length) * 100} className="w-full" />
+        <Progress
+          value={(currentStep / BOOKING_STEPS.length) * 100}
+          className="w-full"
+        />
       </div>
     </div>
   );
@@ -378,9 +396,11 @@ const OnlineConsultationBooking: React.FC = () => {
     <div className="w-full max-w-6xl mx-auto">
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold mb-2">Chọn tư vấn viên</h2>
-        <p className="text-muted-foreground">Chọn tư vấn viên phù hợp với nhu cầu của bạn</p>
+        <p className="text-muted-foreground">
+          Chọn tư vấn viên phù hợp với nhu cầu của bạn
+        </p>
       </div>
-      
+
       {isLoadingConsultants ? (
         <LoadingSpinner />
       ) : (
@@ -389,13 +409,18 @@ const OnlineConsultationBooking: React.FC = () => {
             <Card
               key={consultant.id}
               className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
-                selectedConsultant?.id === consultant.id ? "ring-2 ring-primary" : ""
+                selectedConsultant?.id === consultant.id
+                  ? "ring-2 ring-primary"
+                  : ""
               }`}
               onClick={() => handleConsultantSelect(consultant)}
             >
               <CardHeader className="text-center">
                 <Avatar className="w-20 h-20 mx-auto mb-4">
-                  <AvatarImage src={consultant.user?.profilePicture} alt={`${consultant.user?.firstName} ${consultant.user?.lastName}`} />
+                  <AvatarImage
+                    src={consultant.user?.profilePicture}
+                    alt={`${consultant.user?.firstName} ${consultant.user?.lastName}`}
+                  />
                   <AvatarFallback>
                     {`${consultant.user?.firstName ? consultant.user.firstName[0] : ""}${consultant.user?.lastName ? consultant.user.lastName[0] : ""}`}
                   </AvatarFallback>
@@ -406,32 +431,42 @@ const OnlineConsultationBooking: React.FC = () => {
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-center gap-1">
                   <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                  <span className="text-sm font-medium">{consultant.rating}/5</span>
+                  <span className="text-sm font-medium">
+                    {consultant.rating}/5
+                  </span>
                 </div>
-                
+
                 <div className="flex items-center gap-2">
                   <Award className="w-4 h-4 text-primary" />
                   <span className="text-sm">{consultant.experience}</span>
                 </div>
-                
+
                 <div className="flex flex-wrap gap-1">
-                  {consultant.specialties.slice(0, 2).map((specialty, index) => (
-                    <Badge key={index} variant="secondary" className="text-xs">
-                      {specialty}
-                    </Badge>
-                  ))}
+                  {consultant.specialties
+                    .slice(0, 2)
+                    .map((specialty, index) => (
+                      <Badge
+                        key={index}
+                        variant="secondary"
+                        className="text-xs"
+                      >
+                        {specialty}
+                      </Badge>
+                    ))}
                   {consultant.specialties.length > 2 && (
                     <Badge variant="outline" className="text-xs">
                       +{consultant.specialties.length - 2}
                     </Badge>
                   )}
                 </div>
-                
+
                 <div className="text-center pt-2">
                   <div className="text-lg font-semibold text-primary">
                     {consultant.consultationFee.toLocaleString()}đ
                   </div>
-                  <div className="text-xs text-muted-foreground">/ buổi tư vấn</div>
+                  <div className="text-xs text-muted-foreground">
+                    / buổi tư vấn
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -446,10 +481,12 @@ const OnlineConsultationBooking: React.FC = () => {
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold mb-2">Chọn thời gian</h2>
         <p className="text-muted-foreground">
-          Chọn ngày và giờ phù hợp cho buổi tư vấn với {selectedConsultant?.user?.firstName} {selectedConsultant?.user?.lastName}
+          Chọn ngày và giờ phù hợp cho buổi tư vấn với{" "}
+          {selectedConsultant?.user?.firstName}{" "}
+          {selectedConsultant?.user?.lastName}
         </p>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card>
           <CardHeader>
@@ -463,13 +500,15 @@ const OnlineConsultationBooking: React.FC = () => {
               mode="single"
               selected={selectedDate}
               onSelect={handleDateSelect}
-              disabled={(date) => isBefore(date, new Date()) || date.getDay() === 0}
+              disabled={(date) =>
+                isBefore(date, new Date()) || date.getDay() === 0
+              }
               className="rounded-md border"
               locale={vi}
             />
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -488,13 +527,19 @@ const OnlineConsultationBooking: React.FC = () => {
             ) : (
               <div className="space-y-2">
                 <div className="text-sm font-medium mb-3">
-                  {selectedDate && format(selectedDate, "EEEE, dd/MM/yyyy", { locale: vi })}
+                  {selectedDate &&
+                    format(selectedDate, "EEEE, dd/MM/yyyy", { locale: vi })}
                 </div>
                 {availableSlots.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     {/* Check if the message from the API indicates consultant issue */}
-                    {selectedConsultant && !selectedConsultant.isAvailable && selectedConsultant.profileStatus !== "active" ? (
-                      <p>Tư vấn viên này hiện không hoạt động hoặc không có lịch trống.</p>
+                    {selectedConsultant &&
+                    !selectedConsultant.isAvailable &&
+                    selectedConsultant.profileStatus !== "active" ? (
+                      <p>
+                        Tư vấn viên này hiện không hoạt động hoặc không có lịch
+                        trống.
+                      </p>
                     ) : (
                       <p>Không có lịch trống cho ngày này.</p>
                     )}
@@ -504,9 +549,13 @@ const OnlineConsultationBooking: React.FC = () => {
                     {availableSlots.map((slot) => (
                       <Button
                         key={slot.id}
-                        variant={selectedSlot?.id === slot.id ? "default" : "outline"}
+                        variant={
+                          selectedSlot?.id === slot.id ? "default" : "outline"
+                        }
                         className={`justify-start ${
-                          !slot.isAvailable ? "opacity-50 cursor-not-allowed" : ""
+                          !slot.isAvailable
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
                         }`}
                         disabled={!slot.isAvailable}
                         onClick={() => handleSlotSelect(slot)}
@@ -533,7 +582,7 @@ const OnlineConsultationBooking: React.FC = () => {
           Cung cấp thông tin chi tiết để tư vấn viên chuẩn bị tốt nhất
         </p>
       </div>
-      
+
       <Card>
         <CardContent className="space-y-6 pt-6">
           {errors.general && (
@@ -541,7 +590,7 @@ const OnlineConsultationBooking: React.FC = () => {
               <p className="text-sm text-red-600">{errors.general}</p>
             </div>
           )}
-          
+
           <div className="space-y-2">
             <Label htmlFor="reason" className="text-sm font-medium">
               Lý do tư vấn <span className="text-red-500">*</span>
@@ -557,10 +606,12 @@ const OnlineConsultationBooking: React.FC = () => {
               className={`min-h-[100px] ${getFieldError("consultationReason") ? "border-red-500" : ""}`}
             />
             {getFieldError("consultationReason") && (
-              <p className="text-sm text-red-500">{getFieldError("consultationReason")}</p>
+              <p className="text-sm text-red-500">
+                {getFieldError("consultationReason")}
+              </p>
             )}
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="symptoms" className="text-sm font-medium">
               Triệu chứng (nếu có)
@@ -576,10 +627,12 @@ const OnlineConsultationBooking: React.FC = () => {
               className={`min-h-[80px] ${getFieldError("symptoms") ? "border-red-500" : ""}`}
             />
             {getFieldError("symptoms") && (
-              <p className="text-sm text-red-500">{getFieldError("symptoms")}</p>
+              <p className="text-sm text-red-500">
+                {getFieldError("symptoms")}
+              </p>
             )}
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="notes" className="text-sm font-medium">
               Ghi chú thêm
@@ -595,15 +648,19 @@ const OnlineConsultationBooking: React.FC = () => {
               className={`min-h-[80px] ${getFieldError("additionalNotes") ? "border-red-500" : ""}`}
             />
             {getFieldError("additionalNotes") && (
-              <p className="text-sm text-red-500">{getFieldError("additionalNotes")}</p>
+              <p className="text-sm text-red-500">
+                {getFieldError("additionalNotes")}
+              </p>
             )}
           </div>
-          
+
           <div className="space-y-3">
             <Label className="text-sm font-medium">Phương thức tư vấn</Label>
             <div className="grid grid-cols-3 gap-3">
               <Button
-                variant={preferredContactMethod === "video" ? "default" : "outline"}
+                variant={
+                  preferredContactMethod === "video" ? "default" : "outline"
+                }
                 onClick={() => setPreferredContactMethod("video")}
                 className="flex flex-col items-center gap-2 h-auto py-4"
               >
@@ -611,7 +668,9 @@ const OnlineConsultationBooking: React.FC = () => {
                 <span className="text-xs">Video call</span>
               </Button>
               <Button
-                variant={preferredContactMethod === "phone" ? "default" : "outline"}
+                variant={
+                  preferredContactMethod === "phone" ? "default" : "outline"
+                }
                 onClick={() => setPreferredContactMethod("phone")}
                 className="flex flex-col items-center gap-2 h-auto py-4"
               >
@@ -619,7 +678,9 @@ const OnlineConsultationBooking: React.FC = () => {
                 <span className="text-xs">Điện thoại</span>
               </Button>
               <Button
-                variant={preferredContactMethod === "chat" ? "default" : "outline"}
+                variant={
+                  preferredContactMethod === "chat" ? "default" : "outline"
+                }
                 onClick={() => setPreferredContactMethod("chat")}
                 className="flex flex-col items-center gap-2 h-auto py-4"
               >
@@ -637,90 +698,111 @@ const OnlineConsultationBooking: React.FC = () => {
     <div className="w-full max-w-2xl mx-auto">
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold mb-2">Xác nhận đặt lịch</h2>
-        <p className="text-muted-foreground">Vui lòng kiểm tra lại thông tin trước khi xác nhận</p>
+        <p className="text-muted-foreground">
+          Vui lòng kiểm tra lại thông tin trước khi xác nhận
+        </p>
       </div>
-      
+
       <Card>
         <CardContent className="space-y-6 pt-6">
           <div className="flex items-center gap-4">
-              <Avatar className="w-16 h-16">
-                <AvatarImage src={selectedConsultant?.user?.profilePicture} alt={`${selectedConsultant?.user?.firstName} ${selectedConsultant?.user?.lastName}`} />
-                <AvatarFallback>
-                  {`${selectedConsultant?.user?.firstName ? selectedConsultant.user.firstName[0] : ""}${selectedConsultant?.user?.lastName ? selectedConsultant.user.lastName[0] : ""}`}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <div className="font-semibold text-lg">{`${selectedConsultant?.user?.firstName} ${selectedConsultant?.user?.lastName}`}</div>
-                <div className="text-sm text-muted-foreground">{selectedConsultant?.qualification}</div>
-                <div className="flex items-center gap-1 mt-1">
-                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                  <span className="text-sm">{selectedConsultant?.rating}/5</span>
-                </div>
+            <Avatar className="w-16 h-16">
+              <AvatarImage
+                src={selectedConsultant?.user?.profilePicture}
+                alt={`${selectedConsultant?.user?.firstName} ${selectedConsultant?.user?.lastName}`}
+              />
+              <AvatarFallback>
+                {`${selectedConsultant?.user?.firstName ? selectedConsultant.user.firstName[0] : ""}${selectedConsultant?.user?.lastName ? selectedConsultant.user.lastName[0] : ""}`}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <div className="font-semibold text-lg">{`${selectedConsultant?.user?.firstName} ${selectedConsultant?.user?.lastName}`}</div>
+              <div className="text-sm text-muted-foreground">
+                {selectedConsultant?.qualification}
+              </div>
+              <div className="flex items-center gap-1 mt-1">
+                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                <span className="text-sm">{selectedConsultant?.rating}/5</span>
               </div>
             </div>
-            
-            <Separator />
-            
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Ngày tư vấn:</span>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">
+                Ngày tư vấn:
+              </span>
+              <span className="font-medium">
+                {selectedDate &&
+                  format(selectedDate, "EEEE, dd/MM/yyyy", { locale: vi })}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">Thời gian:</span>
+              <span className="font-medium">{selectedSlot?.time}</span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">
+                Phương thức:
+              </span>
+              <div className="flex items-center gap-2">
+                {preferredContactMethod === "video" && (
+                  <Video className="w-4 h-4" />
+                )}
+                {preferredContactMethod === "phone" && (
+                  <Phone className="w-4 h-4" />
+                )}
+                {preferredContactMethod === "chat" && (
+                  <MessageSquare className="w-4 h-4" />
+                )}
                 <span className="font-medium">
-                  {selectedDate && format(selectedDate, "EEEE, dd/MM/yyyy", { locale: vi })}
-                </span>
-              </div>
-              
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Thời gian:</span>
-                <span className="font-medium">{selectedSlot?.time}</span>
-              </div>
-              
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Phương thức:</span>
-                <div className="flex items-center gap-2">
-                  {preferredContactMethod === "video" && <Video className="w-4 h-4" />}
-                  {preferredContactMethod === "phone" && <Phone className="w-4 h-4" />}
-                  {preferredContactMethod === "chat" && <MessageSquare className="w-4 h-4" />}
-                  <span className="font-medium">
-                    {preferredContactMethod === "video" ? "Video call" : 
-                     preferredContactMethod === "phone" ? "Điện thoại" : "Chat"}
-                  </span>
-                </div>
-              </div>
-              
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Chi phí:</span>
-                <span className="font-semibold text-lg text-primary">
-                  {selectedConsultant?.consultationFee?.toLocaleString()}đ
+                  {preferredContactMethod === "video"
+                    ? "Video call"
+                    : preferredContactMethod === "phone"
+                      ? "Điện thoại"
+                      : "Chat"}
                 </span>
               </div>
             </div>
-            
-            <Separator />
-            
+
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">Chi phí:</span>
+              <span className="font-semibold text-lg text-primary">
+                {selectedConsultant?.consultationFee?.toLocaleString()}đ
+              </span>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Lý do tư vấn:</div>
+            <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+              {consultationReason}
+            </div>
+          </div>
+
+          {symptoms && (
             <div className="space-y-2">
-              <div className="text-sm font-medium">Lý do tư vấn:</div>
+              <div className="text-sm font-medium">Triệu chứng:</div>
               <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
-                {consultationReason}
+                {symptoms}
               </div>
             </div>
-            
-            {symptoms && (
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Triệu chứng:</div>
-                <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
-                  {symptoms}
-                </div>
+          )}
+
+          {additionalNotes && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Ghi chú:</div>
+              <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+                {additionalNotes}
               </div>
-            )}
-            
-            {additionalNotes && (
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Ghi chú:</div>
-                <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
-                  {additionalNotes}
-                </div>
-              </div>
-            )}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -737,7 +819,7 @@ const OnlineConsultationBooking: React.FC = () => {
         <ArrowLeft className="w-4 h-4" />
         Quay lại
       </Button>
-      
+
       <div className="flex items-center gap-2">
         {currentStep < 3 && (
           <Button
@@ -752,7 +834,7 @@ const OnlineConsultationBooking: React.FC = () => {
             <ArrowRight className="w-4 h-4" />
           </Button>
         )}
-        
+
         {currentStep === 3 && (
           <Button
             onClick={handleBookingSubmit}
@@ -813,12 +895,12 @@ const OnlineConsultationBooking: React.FC = () => {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
         {renderStepIndicator()}
-        
+
         {currentStep === 1 && renderConsultantSelection()}
         {currentStep === 2 && renderTimeSelection()}
         {currentStep === 3 && renderConsultationInfo()}
         {currentStep === 4 && renderConfirmation()}
-        
+
         {renderNavigationButtons()}
       </div>
 
@@ -828,11 +910,19 @@ const OnlineConsultationBooking: React.FC = () => {
           <DialogHeader>
             <DialogTitle>Xác nhận đặt lịch tư vấn</DialogTitle>
             <DialogDescription>
-              Bạn có chắc chắn muốn đặt lịch tư vấn với {selectedConsultant?.user?.firstName} {selectedConsultant?.user?.lastName} vào {selectedDate && format(selectedDate, "dd/MM/yyyy", { locale: vi })} lúc {selectedSlot?.time}?
+              Bạn có chắc chắn muốn đặt lịch tư vấn với{" "}
+              {selectedConsultant?.user?.firstName}{" "}
+              {selectedConsultant?.user?.lastName} vào{" "}
+              {selectedDate &&
+                format(selectedDate, "dd/MM/yyyy", { locale: vi })}{" "}
+              lúc {selectedSlot?.time}?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsConfirmDialogOpen(false)}
+            >
               Hủy
             </Button>
             <Button onClick={handleConfirmBooking} disabled={isBookingLoading}>
@@ -858,7 +948,8 @@ const OnlineConsultationBooking: React.FC = () => {
               Đặt lịch thành công!
             </DialogTitle>
             <DialogDescription className="text-center">
-              Lịch tư vấn của bạn đã được ghi nhận. Tư vấn viên sẽ liên hệ với bạn trong thời gian sớm nhất.
+              Lịch tư vấn của bạn đã được ghi nhận. Tư vấn viên sẽ liên hệ với
+              bạn trong thời gian sớm nhất.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex justify-center">
