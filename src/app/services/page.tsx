@@ -3,18 +3,21 @@ import { useEffect, useState } from "react";
 import { APIService, Service } from "@/services/service.service";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { formatCurrency } from "@/lib/utils";
 
 export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
   const router = useRouter();
 
   useEffect(() => {
-    APIService.getAll().then(({ data }) => {
-      setServices(data);
-    }).catch((error: any) => {
-      console.error("Error fetching services:", error);
-      setServices([]);
-    });
+    APIService.getAll()
+      .then(({ data }) => {
+        setServices(data);
+      })
+      .catch((error: any) => {
+        console.error("Error fetching services:", error);
+        setServices([]);
+      });
   }, []);
 
   const handleServiceClick = (id: string) => {
@@ -66,7 +69,7 @@ export default function ServicesPage() {
                 <span className="inline-block font-semibold text-lg text-green-700">
                   Giá:{" "}
                   <span className="text-2xl text-green-800">
-                    {item.price?.toLocaleString() || "Liên hệ"} VNĐ
+                    {formatCurrency(item.price || 0)}
                   </span>
                 </span>
                 {/* Removed package specific info as we are fetching services directly */}
