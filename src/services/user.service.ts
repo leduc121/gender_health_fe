@@ -1,5 +1,6 @@
-import { apiClient } from "./api";
 import { API_ENDPOINTS } from "@/config/api";
+import { PaginationResponse } from "@/types/api";
+import { apiClient } from "./api";
 import { ConsultantProfile } from "./consultant.service"; // Import ConsultantProfile
 
 export interface User {
@@ -72,7 +73,10 @@ export interface UpdateUserPayload {
 export class UserService {
   static async createUser(payload: CreateUserPayload): Promise<User> {
     try {
-      const response = await apiClient.post<User>(API_ENDPOINTS.USERS.CREATE, payload);
+      const response = await apiClient.post<User>(
+        API_ENDPOINTS.USERS.CREATE,
+        payload
+      );
       return response;
     } catch (error) {
       console.error("Error creating user:", error);
@@ -80,9 +84,15 @@ export class UserService {
     }
   }
 
-  static async updateUser(id: string, payload: UpdateUserPayload): Promise<User> {
+  static async updateUser(
+    id: string,
+    payload: UpdateUserPayload
+  ): Promise<User> {
     try {
-      const response = await apiClient.patch<User>(`${API_ENDPOINTS.USERS.BASE}/${id}`, payload);
+      const response = await apiClient.patch<User>(
+        `${API_ENDPOINTS.USERS.BASE}/${id}`,
+        payload
+      );
       return response;
     } catch (error) {
       console.error(`Error updating user ${id}:`, error);
@@ -90,9 +100,14 @@ export class UserService {
     }
   }
 
-  static async getAllUsers(query?: GetUsersQuery): Promise<{ data: User[]; total: number }> {
+  static async getAllUsers(
+    query?: GetUsersQuery
+  ): Promise<PaginationResponse<User>> {
     try {
-      const response = await apiClient.get<{ data: User[]; total: number }>(API_ENDPOINTS.USERS.GET_ALL, { params: query });
+      const response = await apiClient.get<PaginationResponse<User>>(
+        API_ENDPOINTS.USERS.GET_ALL,
+        { params: query }
+      );
       return response;
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -102,7 +117,9 @@ export class UserService {
 
   static async toggleUserActiveStatus(id: string): Promise<User> {
     try {
-      const response = await apiClient.put<User>(API_ENDPOINTS.USERS.TOGGLE_ACTIVE(id));
+      const response = await apiClient.put<User>(
+        API_ENDPOINTS.USERS.TOGGLE_ACTIVE(id)
+      );
       return response;
     } catch (error) {
       console.error(`Error toggling user ${id} status:`, error);
@@ -112,7 +129,9 @@ export class UserService {
 
   static async verifyUserEmail(id: string): Promise<User> {
     try {
-      const response = await apiClient.put<User>(API_ENDPOINTS.USERS.VERIFY_EMAIL(id));
+      const response = await apiClient.put<User>(
+        API_ENDPOINTS.USERS.VERIFY_EMAIL(id)
+      );
       return response;
     } catch (error) {
       console.error(`Error verifying user ${id} email:`, error);
@@ -122,7 +141,9 @@ export class UserService {
 
   static async getUserById(id: string): Promise<User> {
     try {
-      const response = await apiClient.get<User>(`${API_ENDPOINTS.USERS.BASE}/${id}`);
+      const response = await apiClient.get<User>(
+        `${API_ENDPOINTS.USERS.BASE}/${id}`
+      );
       return response;
     } catch (error) {
       console.error(`Error fetching user ${id}:`, error);

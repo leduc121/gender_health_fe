@@ -1,10 +1,10 @@
 "use client";
 
-import * as React from "react";
 import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
+import * as React from "react";
 
-import { cn } from "@/lib/utils";
 import { ButtonProps, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface PaginationProps extends React.ComponentProps<"nav"> {
   currentPage: number;
@@ -41,7 +41,10 @@ const Pagination = ({
   >
     <PaginationContent>
       <PaginationItem>
-        <PaginationPrevious onClick={onPreviousPage} disabled={!hasPreviousPage} />
+        <PaginationPrevious
+          onClick={onPreviousPage}
+          disabled={!hasPreviousPage}
+        />
       </PaginationItem>
       {pageNumbers.map((page, index) =>
         page === -1 ? (
@@ -115,7 +118,8 @@ const PaginationLink = ({
 );
 PaginationLink.displayName = "PaginationLink";
 
-interface PaginationArrowProps extends React.ComponentProps<typeof PaginationLink> {
+interface PaginationArrowProps
+  extends React.ComponentProps<typeof PaginationLink> {
   disabled?: boolean; // Explicitly add disabled prop
 }
 

@@ -1,40 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import StiProcessDetail from "@/components/StiProcessDetail";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { RefreshCcw, Calendar as CalendarIcon } from "lucide-react";
-import { DateRange } from "react-day-picker";
 import DatePickerWithRange from "@/components/ui/date-picker-with-range";
-import {
-  StiProcess as StiTestProcess,
-  STITestingService,
-  TestFilters,
-  TestStatus,
-  SampleType,
-  Priority,
-} from "@/services/sti-testing.service";
-import { API_FEATURES } from "@/config/api";
-import { Pagination } from "@/components/ui/pagination";
-import { PaginationInfo } from "@/components/ui/pagination-info";
-import { useToast } from "@/components/ui/use-toast";
-import { format } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -43,14 +12,47 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import StiProcessDetail from "@/components/StiProcessDetail";
+import { Input } from "@/components/ui/input";
+import { Pagination } from "@/components/ui/pagination";
+import { PaginationInfo } from "@/components/ui/pagination-info";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useToast } from "@/components/ui/use-toast";
+import { API_FEATURES } from "@/config/api";
+import {
+  Priority,
+  SampleType,
+  STITestingService,
+  StiProcess as StiTestProcess,
+  TestFilters,
+  TestStatus,
+} from "@/services/sti-testing.service";
+import { format } from "date-fns";
+import { RefreshCcw } from "lucide-react";
+import { useEffect, useState } from "react";
+import { DateRange } from "react-day-picker";
 
 export default function StiTestManagementTable() {
   const { toast } = useToast();
   const [tests, setTests] = useState<StiTestProcess[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(API_FEATURES.PAGINATION.DEFAULT_PAGE);
+  const [currentPage, setCurrentPage] = useState(
+    API_FEATURES.PAGINATION.DEFAULT_PAGE
+  );
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [selectedTest, setSelectedTest] = useState<StiTestProcess | null>(null);
   const [totalTests, setTotalTests] = useState(0);
@@ -61,8 +63,10 @@ export default function StiTestManagementTable() {
   const [filterPatientId, setFilterPatientId] = useState<string>(""); // Need to fetch patient list
   const [filterConsultantId, setFilterConsultantId] = useState<string>(""); // Need to fetch consultant list
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined); // New state for date range filter
-  const [filterRequiresConsultation, setFilterRequiresConsultation] = useState<string>("all");
-  const [filterPatientNotified, setFilterPatientNotified] = useState<string>("all");
+  const [filterRequiresConsultation, setFilterRequiresConsultation] =
+    useState<string>("all");
+  const [filterPatientNotified, setFilterPatientNotified] =
+    useState<string>("all");
   const [filterHasResults, setFilterHasResults] = useState<string>("all");
 
   const limit = API_FEATURES.PAGINATION.DEFAULT_LIMIT;
@@ -118,7 +122,9 @@ export default function StiTestManagementTable() {
       setTotalTests(response.meta.totalItems);
     } catch (err: any) {
       console.error("Error fetching STI tests:", err);
-      setError(err.message || "Lỗi khi tải danh sách xét nghiệm STI. Vui lòng thử lại.");
+      setError(
+        err.message || "Lỗi khi tải danh sách xét nghiệm STI. Vui lòng thử lại."
+      );
     } finally {
       setLoading(false);
     }
@@ -126,7 +132,19 @@ export default function StiTestManagementTable() {
 
   useEffect(() => {
     fetchTests();
-  }, [currentPage, searchQuery, filterStatus, filterSampleType, filterPriority, filterPatientId, filterConsultantId, dateRange, filterRequiresConsultation, filterPatientNotified, filterHasResults]);
+  }, [
+    currentPage,
+    searchQuery,
+    filterStatus,
+    filterSampleType,
+    filterPriority,
+    filterPatientId,
+    filterConsultantId,
+    dateRange,
+    filterRequiresConsultation,
+    filterPatientNotified,
+    filterHasResults,
+  ]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -204,7 +222,7 @@ export default function StiTestManagementTable() {
 
   return (
     <div className="space-y-4">
-        <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center">
         <div className="flex flex-wrap gap-4 mb-4">
           <Input
             placeholder="Tìm kiếm mã xét nghiệm..."
@@ -229,18 +247,27 @@ export default function StiTestManagementTable() {
               <SelectContent>
                 <SelectItem value="all">Tất cả trạng thái</SelectItem>
                 <SelectItem value="ordered">Đã đặt lịch</SelectItem>
-                <SelectItem value="sample_collection_scheduled">Lên lịch lấy mẫu</SelectItem>
+                <SelectItem value="sample_collection_scheduled">
+                  Lên lịch lấy mẫu
+                </SelectItem>
                 <SelectItem value="sample_collected">Đã lấy mẫu</SelectItem>
                 <SelectItem value="processing">Đang xử lý</SelectItem>
                 <SelectItem value="result_ready">Có kết quả</SelectItem>
                 <SelectItem value="result_delivered">Đã gửi kết quả</SelectItem>
-                <SelectItem value="consultation_required">Yêu cầu tư vấn</SelectItem>
-                <SelectItem value="follow_up_scheduled">Lên lịch tái khám</SelectItem>
+                <SelectItem value="consultation_required">
+                  Yêu cầu tư vấn
+                </SelectItem>
+                <SelectItem value="follow_up_scheduled">
+                  Lên lịch tái khám
+                </SelectItem>
                 <SelectItem value="completed">Hoàn thành</SelectItem>
                 <SelectItem value="cancelled">Đã hủy</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={filterSampleType} onValueChange={setFilterSampleType}>
+            <Select
+              value={filterSampleType}
+              onValueChange={setFilterSampleType}
+            >
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Lọc theo loại mẫu" />
               </SelectTrigger>
@@ -264,7 +291,10 @@ export default function StiTestManagementTable() {
                 <SelectItem value="urgent">Khẩn cấp</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={filterRequiresConsultation} onValueChange={setFilterRequiresConsultation}>
+            <Select
+              value={filterRequiresConsultation}
+              onValueChange={setFilterRequiresConsultation}
+            >
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Yêu cầu tư vấn?" />
               </SelectTrigger>
@@ -274,7 +304,10 @@ export default function StiTestManagementTable() {
                 <SelectItem value="false">Không yêu cầu tư vấn</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={filterPatientNotified} onValueChange={setFilterPatientNotified}>
+            <Select
+              value={filterPatientNotified}
+              onValueChange={setFilterPatientNotified}
+            >
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Đã thông báo BN?" />
               </SelectTrigger>
@@ -284,7 +317,10 @@ export default function StiTestManagementTable() {
                 <SelectItem value="false">Chưa thông báo</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={filterHasResults} onValueChange={setFilterHasResults}>
+            <Select
+              value={filterHasResults}
+              onValueChange={setFilterHasResults}
+            >
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Có kết quả?" />
               </SelectTrigger>
@@ -305,10 +341,14 @@ export default function StiTestManagementTable() {
         <div className="text-center py-8 text-red-500">
           <p className="font-bold">Lỗi:</p>
           <p>{error}</p>
-          <p className="mt-2">Vui lòng thử lại hoặc liên hệ quản trị viên nếu lỗi tiếp diễn.</p>
+          <p className="mt-2">
+            Vui lòng thử lại hoặc liên hệ quản trị viên nếu lỗi tiếp diễn.
+          </p>
         </div>
       ) : tests.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">Không có xét nghiệm STI nào.</div>
+        <div className="text-center py-8 text-gray-500">
+          Không có xét nghiệm STI nào.
+        </div>
       ) : (
         <>
           <Table>
@@ -328,16 +368,26 @@ export default function StiTestManagementTable() {
               {tests.map((test) => (
                 <TableRow key={test.id}>
                   <TableCell>{test.testCode}</TableCell>
-                  <TableCell>{test.patient?.firstName} {test.patient?.lastName || "N/A"}</TableCell>
+                  <TableCell>
+                    {test.patient?.firstName} {test.patient?.lastName || "N/A"}
+                  </TableCell>
                   <TableCell>{test.service?.name || "N/A"}</TableCell>
                   <TableCell>{test.sampleType}</TableCell>
                   <TableCell>{test.priority}</TableCell>
                   <TableCell>
-                    <Badge style={{ backgroundColor: STITestingService.getStatusColor(test.status) }}>
+                    <Badge
+                      style={{
+                        backgroundColor: STITestingService.getStatusColor(
+                          test.status
+                        ),
+                      }}
+                    >
                       {STITestingService.getStatusText(test.status)}
                     </Badge>
                   </TableCell>
-                  <TableCell>{format(new Date(test.createdAt), "dd/MM/yyyy HH:mm")}</TableCell>
+                  <TableCell>
+                    {format(new Date(test.createdAt), "dd/MM/yyyy HH:mm")}
+                  </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       <Dialog>
@@ -353,9 +403,12 @@ export default function StiTestManagementTable() {
                         {selectedTest && (
                           <DialogContent className="sm:max-w-[800px]">
                             <DialogHeader>
-                              <DialogTitle>Chi tiết quy trình xét nghiệm</DialogTitle>
+                              <DialogTitle>
+                                Chi tiết quy trình xét nghiệm
+                              </DialogTitle>
                               <DialogDescription>
-                                Xem chi tiết và cập nhật trạng thái cho mã xét nghiệm {selectedTest.testCode}.
+                                Xem chi tiết và cập nhật trạng thái cho mã xét
+                                nghiệm {selectedTest.testCode}.
                               </DialogDescription>
                             </DialogHeader>
                             <StiProcessDetail

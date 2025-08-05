@@ -1,6 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label"; // Ensure Label is imported
+import { Pagination } from "@/components/ui/pagination";
+import { PaginationInfo } from "@/components/ui/pagination-info";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -9,43 +29,31 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { User, UserService, GetUsersQuery, Role } from "@/services/user.service"; // Import Role
-import { API_FEATURES } from "@/config/api";
-import { Pagination } from "@/components/ui/pagination";
-import { PaginationInfo } from "@/components/ui/pagination-info";
 import { useToast } from "@/components/ui/use-toast";
+import { API_FEATURES } from "@/config/api";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label"; // Ensure Label is imported
+  GetUsersQuery,
+  Role,
+  User,
+  UserService,
+} from "@/services/user.service"; // Import Role
+import { useEffect, useState } from "react";
 
 export default function UserManagementTable() {
   const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(API_FEATURES.PAGINATION.DEFAULT_PAGE);
+  const [currentPage, setCurrentPage] = useState(
+    API_FEATURES.PAGINATION.DEFAULT_PAGE
+  );
   const [totalUsers, setTotalUsers] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRole, setFilterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all"); // "active", "inactive", ""
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
-  const [isViewUserDetailDialogOpen, setIsViewUserDetailDialogOpen] = useState(false);
+  const [isViewUserDetailDialogOpen, setIsViewUserDetailDialogOpen] =
+    useState(false);
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false); // New state for edit dialog
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [editUserData, setEditUserData] = useState({
@@ -101,7 +109,7 @@ export default function UserManagementTable() {
 
       const response = await UserService.getAllUsers(query);
       setUsers(response.data);
-      setTotalUsers(response.total);
+      setTotalUsers(response.meta.totalItems);
     } catch (err: any) {
       console.error("Error fetching users:", err);
       setError(err?.message || "Lỗi khi tải danh sách người dùng.");
@@ -133,7 +141,10 @@ export default function UserManagementTable() {
     setCurrentPage(page);
   };
 
-  const handleToggleActiveStatus = async (id: string, currentStatus: boolean) => {
+  const handleToggleActiveStatus = async (
+    id: string,
+    currentStatus: boolean
+  ) => {
     try {
       await UserService.toggleUserActiveStatus(id);
       toast({
@@ -310,10 +321,17 @@ export default function UserManagementTable() {
 
   const handleCreateUser = async () => {
     // Basic validation for required fields
-    if (!newUserData.firstName || !newUserData.lastName || !newUserData.email || !newUserData.password || !newUserData.role) {
+    if (
+      !newUserData.firstName ||
+      !newUserData.lastName ||
+      !newUserData.email ||
+      !newUserData.password ||
+      !newUserData.role
+    ) {
       toast({
         title: "Lỗi",
-        description: "Vui lòng điền đầy đủ các trường bắt buộc (Họ, Tên, Email, Mật khẩu, Vai trò).",
+        description:
+          "Vui lòng điền đầy đủ các trường bắt buộc (Họ, Tên, Email, Mật khẩu, Vai trò).",
         variant: "destructive",
       });
       return;
@@ -360,10 +378,16 @@ export default function UserManagementTable() {
     }
 
     // Basic validation for required fields
-    if (!editUserData.firstName || !editUserData.lastName || !editUserData.email || !editUserData.role) {
+    if (
+      !editUserData.firstName ||
+      !editUserData.lastName ||
+      !editUserData.email ||
+      !editUserData.role
+    ) {
       toast({
         title: "Lỗi",
-        description: "Vui lòng điền đầy đủ các trường bắt buộc (Họ, Tên, Email, Vai trò).",
+        description:
+          "Vui lòng điền đầy đủ các trường bắt buộc (Họ, Tên, Email, Vai trò).",
         variant: "destructive",
       });
       return;
@@ -378,7 +402,9 @@ export default function UserManagementTable() {
         address: editUserData.address || undefined,
         gender: editUserData.gender || undefined,
         role: editUserData.role,
-        dateOfBirth: editUserData.dateOfBirth ? new Date(editUserData.dateOfBirth).toISOString() : undefined,
+        dateOfBirth: editUserData.dateOfBirth
+          ? new Date(editUserData.dateOfBirth).toISOString()
+          : undefined,
       };
 
       await UserService.updateUser(selectedUser.id, payload);
@@ -439,7 +465,9 @@ export default function UserManagementTable() {
       ) : error ? (
         <div className="text-center py-8 text-red-500">{error}</div>
       ) : users.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">Không có người dùng nào.</div>
+        <div className="text-center py-8 text-gray-500">
+          Không có người dùng nào.
+        </div>
       ) : (
         <>
           <Table>
@@ -455,10 +483,12 @@ export default function UserManagementTable() {
             </TableHeader>
             <TableBody>
               {users.map((user) => {
-                const userRole = roles.find(role => role.id === user.roleId);
+                const userRole = roles.find((role) => role.id === user.roleId);
                 return (
                   <TableRow key={user.id}>
-                    <TableCell>{user.firstName} {user.lastName}</TableCell>
+                    <TableCell>
+                      {user.firstName} {user.lastName}
+                    </TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{user.phone || "N/A"}</TableCell>
                     <TableCell>{user.role.description || "N/A"}</TableCell>
@@ -467,23 +497,33 @@ export default function UserManagementTable() {
                         {user.isActive ? "Đang hoạt động" : "Không hoạt động"}
                       </Badge>
                     </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => handleViewUserDetailsClick(user)}>
-                        Xem chi tiết
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleEditUserClick(user)}>
-                        Chỉnh sửa
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleToggleActiveStatus(user.id, user.isActive)}
-                      >
-                        {user.isActive ? "Vô hiệu hóa" : "Kích hoạt"}
-                      </Button>
-                      {/* Assuming API has emailVerified status or similar to show this button */}
-                      {/* {!user.emailVerified && (
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewUserDetailsClick(user)}
+                        >
+                          Xem chi tiết
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditUserClick(user)}
+                        >
+                          Chỉnh sửa
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleToggleActiveStatus(user.id, user.isActive)
+                          }
+                        >
+                          {user.isActive ? "Vô hiệu hóa" : "Kích hoạt"}
+                        </Button>
+                        {/* Assuming API has emailVerified status or similar to show this button */}
+                        {/* {!user.emailVerified && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -492,9 +532,9 @@ export default function UserManagementTable() {
                           Xác minh Email
                         </Button>
                       )} */}
-                    </div>
-                  </TableCell>
-                </TableRow>
+                      </div>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
             </TableBody>
@@ -537,43 +577,77 @@ export default function UserManagementTable() {
               <Label htmlFor="firstName" className="text-right">
                 Họ
               </Label>
-              <Input id="firstName" value={newUserData.firstName} onChange={handleInputChange} className="col-span-3" />
+              <Input
+                id="firstName"
+                value={newUserData.firstName}
+                onChange={handleInputChange}
+                className="col-span-3"
+              />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="lastName" className="text-right">
                 Tên
               </Label>
-              <Input id="lastName" value={newUserData.lastName} onChange={handleInputChange} className="col-span-3" />
+              <Input
+                id="lastName"
+                value={newUserData.lastName}
+                onChange={handleInputChange}
+                className="col-span-3"
+              />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="email" className="text-right">
                 Email
               </Label>
-              <Input id="email" value={newUserData.email} onChange={handleInputChange} className="col-span-3" />
+              <Input
+                id="email"
+                value={newUserData.email}
+                onChange={handleInputChange}
+                className="col-span-3"
+              />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="password" className="text-right">
                 Mật khẩu
               </Label>
-              <Input id="password" type="password" value={newUserData.password} onChange={handleInputChange} className="col-span-3" />
+              <Input
+                id="password"
+                type="password"
+                value={newUserData.password}
+                onChange={handleInputChange}
+                className="col-span-3"
+              />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="phone" className="text-right">
                 Số điện thoại
               </Label>
-              <Input id="phone" value={newUserData.phone} onChange={handleInputChange} className="col-span-3" />
+              <Input
+                id="phone"
+                value={newUserData.phone}
+                onChange={handleInputChange}
+                className="col-span-3"
+              />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="address" className="text-right">
                 Địa chỉ
               </Label>
-              <Input id="address" value={newUserData.address} onChange={handleInputChange} className="col-span-3" />
+              <Input
+                id="address"
+                value={newUserData.address}
+                onChange={handleInputChange}
+                className="col-span-3"
+              />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="gender" className="text-right">
                 Giới tính
               </Label>
-              <Select value={newUserData.gender} onValueChange={(value) => handleSelectChange("gender", value)}>
+              <Select
+                value={newUserData.gender}
+                onValueChange={(value) => handleSelectChange("gender", value)}
+              >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Chọn giới tính" />
                 </SelectTrigger>
@@ -588,7 +662,10 @@ export default function UserManagementTable() {
               <Label htmlFor="role" className="text-right">
                 Vai trò
               </Label>
-              <Select value={newUserData.role} onValueChange={(value) => handleSelectChange("role", value)}>
+              <Select
+                value={newUserData.role}
+                onValueChange={(value) => handleSelectChange("role", value)}
+              >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
@@ -603,14 +680,19 @@ export default function UserManagementTable() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseAddUserDialog}>Hủy</Button>
+            <Button variant="outline" onClick={handleCloseAddUserDialog}>
+              Hủy
+            </Button>
             <Button onClick={handleCreateUser}>Thêm người dùng</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* View User Detail Dialog */}
-      <Dialog open={isViewUserDetailDialogOpen} onOpenChange={setIsViewUserDetailDialogOpen}>
+      <Dialog
+        open={isViewUserDetailDialogOpen}
+        onOpenChange={setIsViewUserDetailDialogOpen}
+      >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Chi tiết người dùng</DialogTitle>
@@ -626,7 +708,9 @@ export default function UserManagementTable() {
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Họ tên:</Label>
-                <span className="col-span-3">{selectedUser.firstName} {selectedUser.lastName}</span>
+                <span className="col-span-3">
+                  {selectedUser.firstName} {selectedUser.lastName}
+                </span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Email:</Label>
@@ -634,29 +718,47 @@ export default function UserManagementTable() {
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Số điện thoại:</Label>
-                <span className="col-span-3">{selectedUser.phone || "N/A"}</span>
+                <span className="col-span-3">
+                  {selectedUser.phone || "N/A"}
+                </span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Địa chỉ:</Label>
-                <span className="col-span-3">{selectedUser.address || "N/A"}</span>
+                <span className="col-span-3">
+                  {selectedUser.address || "N/A"}
+                </span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Giới tính:</Label>
-                <span className="col-span-3">{selectedUser.gender || "N/A"}</span>
+                <span className="col-span-3">
+                  {selectedUser.gender || "N/A"}
+                </span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Ngày sinh:</Label>
-                <span className="col-span-3">{selectedUser.dateOfBirth ? new Date(selectedUser.dateOfBirth).toLocaleDateString() : "N/A"}</span>
+                <span className="col-span-3">
+                  {selectedUser.dateOfBirth
+                    ? new Date(selectedUser.dateOfBirth).toLocaleDateString()
+                    : "N/A"}
+                </span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Vai trò:</Label>
-                <span className="col-span-3">{selectedUser.role?.description || selectedUser.role?.name || "N/A"}</span>
+                <span className="col-span-3">
+                  {selectedUser.role?.description ||
+                    selectedUser.role?.name ||
+                    "N/A"}
+                </span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Trạng thái:</Label>
                 <span className="col-span-3">
-                  <Badge variant={selectedUser.isActive ? "default" : "secondary"}>
-                    {selectedUser.isActive ? "Đang hoạt động" : "Không hoạt động"}
+                  <Badge
+                    variant={selectedUser.isActive ? "default" : "secondary"}
+                  >
+                    {selectedUser.isActive
+                      ? "Đang hoạt động"
+                      : "Không hoạt động"}
                   </Badge>
                 </span>
               </div>
@@ -669,7 +771,10 @@ export default function UserManagementTable() {
       </Dialog>
 
       {/* Edit User Dialog */}
-      <Dialog open={isEditUserDialogOpen} onOpenChange={setIsEditUserDialogOpen}>
+      <Dialog
+        open={isEditUserDialogOpen}
+        onOpenChange={setIsEditUserDialogOpen}
+      >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Chỉnh sửa người dùng</DialogTitle>
@@ -683,37 +788,67 @@ export default function UserManagementTable() {
                 <Label htmlFor="firstName" className="text-right">
                   Họ
                 </Label>
-                <Input id="firstName" value={editUserData.firstName || ""} onChange={handleEditInputChange} className="col-span-3" />
+                <Input
+                  id="firstName"
+                  value={editUserData.firstName || ""}
+                  onChange={handleEditInputChange}
+                  className="col-span-3"
+                />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="lastName" className="text-right">
                   Tên
                 </Label>
-                <Input id="lastName" value={editUserData.lastName || ""} onChange={handleEditInputChange} className="col-span-3" />
+                <Input
+                  id="lastName"
+                  value={editUserData.lastName || ""}
+                  onChange={handleEditInputChange}
+                  className="col-span-3"
+                />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="email" className="text-right">
                   Email
                 </Label>
-                <Input id="email" value={editUserData.email || ""} onChange={handleEditInputChange} className="col-span-3" />
+                <Input
+                  id="email"
+                  value={editUserData.email || ""}
+                  onChange={handleEditInputChange}
+                  className="col-span-3"
+                />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="phone" className="text-right">
                   Số điện thoại
                 </Label>
-                <Input id="phone" value={editUserData.phone || ""} onChange={handleEditInputChange} className="col-span-3" />
+                <Input
+                  id="phone"
+                  value={editUserData.phone || ""}
+                  onChange={handleEditInputChange}
+                  className="col-span-3"
+                />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="address" className="text-right">
                   Địa chỉ
                 </Label>
-                <Input id="address" value={editUserData.address || ""} onChange={handleEditInputChange} className="col-span-3" />
+                <Input
+                  id="address"
+                  value={editUserData.address || ""}
+                  onChange={handleEditInputChange}
+                  className="col-span-3"
+                />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="gender" className="text-right">
                   Giới tính
                 </Label>
-                <Select value={editUserData.gender || ""} onValueChange={(value) => handleEditSelectChange("gender", value)}>
+                <Select
+                  value={editUserData.gender || ""}
+                  onValueChange={(value) =>
+                    handleEditSelectChange("gender", value)
+                  }
+                >
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="Chọn giới tính" />
                   </SelectTrigger>
@@ -731,7 +866,13 @@ export default function UserManagementTable() {
                 <Input
                   id="dateOfBirth"
                   type="date"
-                  value={editUserData.dateOfBirth ? new Date(editUserData.dateOfBirth).toISOString().split('T')[0] : ""}
+                  value={
+                    editUserData.dateOfBirth
+                      ? new Date(editUserData.dateOfBirth)
+                          .toISOString()
+                          .split("T")[0]
+                      : ""
+                  }
                   onChange={handleEditInputChange}
                   className="col-span-3"
                 />
@@ -740,7 +881,12 @@ export default function UserManagementTable() {
                 <Label htmlFor="role" className="text-right">
                   Vai trò
                 </Label>
-                <Select value={editUserData.role || ""} onValueChange={(value) => handleEditSelectChange("role", value)}>
+                <Select
+                  value={editUserData.role || ""}
+                  onValueChange={(value) =>
+                    handleEditSelectChange("role", value)
+                  }
+                >
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="Chọn vai trò" />
                   </SelectTrigger>
@@ -756,7 +902,9 @@ export default function UserManagementTable() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseEditUserDialog}>Hủy</Button>
+            <Button variant="outline" onClick={handleCloseEditUserDialog}>
+              Hủy
+            </Button>
             <Button onClick={handleUpdateUser}>Lưu thay đổi</Button>
           </DialogFooter>
         </DialogContent>

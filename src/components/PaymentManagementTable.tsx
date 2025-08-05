@@ -1,7 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { API_ENDPOINTS } from "@/config/api"; // Import API_ENDPOINTS
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"; // Import Dialog components
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label"; // Import Label
+import { Pagination } from "@/components/ui/pagination";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -10,28 +27,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Pagination } from "@/components/ui/pagination";
-import { PaymentService } from "@/services/payment.service"; // Assuming a payment service exists
-import { Payment, PaymentGetAllParams } from "@/types/payment"; // Assuming a payment type definition exists
 import { useToast } from "@/components/ui/use-toast"; // Import useToast
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"; // Import Dialog components
-import { Label } from "@/components/ui/label"; // Import Label
+import { PaymentService } from "@/services/payment.service"; // Assuming a payment service exists
+import { Payment } from "@/types/payment"; // Assuming a payment type definition exists
+import { useEffect, useState } from "react";
 
 type PaymentStatusFilter = "completed" | "pending" | "failed" | "all";
 
@@ -47,8 +46,8 @@ const appointmentStatusMap: Record<string, string> = {
   confirmed: "Đã xác nhận",
   cancelled: "Đã hủy",
   completed: "Đã hoàn thành",
-  "checked_in": "Đã check-in",
-  "no_show": "Không đến",
+  checked_in: "Đã check-in",
+  no_show: "Không đến",
 };
 
 const appointmentLocationMap: Record<string, string> = {
@@ -67,7 +66,8 @@ export default function PaymentManagementTable() {
   const [pageSize, setPageSize] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<PaymentStatusFilter>("all");
-  const [isViewPaymentDetailDialogOpen, setIsViewPaymentDetailDialogOpen] = useState(false);
+  const [isViewPaymentDetailDialogOpen, setIsViewPaymentDetailDialogOpen] =
+    useState(false);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
   // Effect to fetch all payments initially
@@ -77,7 +77,10 @@ export default function PaymentManagementTable() {
       setError(null);
       try {
         // Fetch all payments without filters for client-side processing
-        const response = await PaymentService.getAll({ page: 1, pageSize: 1000 }); // Fetch a large enough set or implement infinite scroll/proper backend pagination
+        const response = await PaymentService.getAll({
+          page: 1,
+          pageSize: 1000,
+        }); // Fetch a large enough set or implement infinite scroll/proper backend pagination
         setAllPayments(Array.isArray(response) ? response : []);
         setLoading(false);
       } catch (err: any) {
@@ -97,8 +100,12 @@ export default function PaymentManagementTable() {
       currentFiltered = currentFiltered.filter(
         (payment) =>
           payment.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          payment.user?.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          payment.user?.lastName?.toLowerCase().includes(searchTerm.toLowerCase())
+          payment.user?.firstName
+            ?.toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          payment.user?.lastName
+            ?.toLowerCase()
+            .includes(searchTerm.toLowerCase())
       );
     }
 
@@ -117,9 +124,7 @@ export default function PaymentManagementTable() {
     const startIndex = (currentPage - 1) * pageSize;
     const endIndex = startIndex + pageSize;
     setFilteredPayments(currentFiltered.slice(startIndex, endIndex));
-
   }, [allPayments, searchTerm, filterStatus, currentPage, pageSize]);
-
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
@@ -168,13 +173,20 @@ export default function PaymentManagementTable() {
           onChange={handleSearchChange}
           className="max-w-sm"
         />
-        <Select value={filterStatus || "all"} onValueChange={(value) => handleStatusFilterChange(value as PaymentStatusFilter)}>
+        <Select
+          value={filterStatus || "all"}
+          onValueChange={(value) =>
+            handleStatusFilterChange(value as PaymentStatusFilter)
+          }
+        >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Lọc theo trạng thái" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{paymentStatusMap.all}</SelectItem>
-            <SelectItem value="completed">{paymentStatusMap.completed}</SelectItem>
+            <SelectItem value="completed">
+              {paymentStatusMap.completed}
+            </SelectItem>
             <SelectItem value="pending">{paymentStatusMap.pending}</SelectItem>
             <SelectItem value="failed">{paymentStatusMap.failed}</SelectItem>
           </SelectContent>
@@ -204,13 +216,33 @@ export default function PaymentManagementTable() {
             filteredPayments.map((payment) => (
               <TableRow key={payment.id}>
                 <TableCell>{payment.id}</TableCell>
-                <TableCell>{`${payment.user?.firstName || ''} ${payment.user?.lastName || ''}`}</TableCell> {/* Display full user name */}
-                <TableCell>{parseFloat(payment.amount).toLocaleString()}đ</TableCell> {/* Parsed amount */}
-                <TableCell>{payment.servicePackage?.name || payment.service?.name || 'Tư vấn trực tuyến'}</TableCell> {/* Display service name, default to 'Tư vấn trực tuyến' */}
-                <TableCell>{paymentStatusMap[payment.status] || payment.status}</TableCell>
-                <TableCell>{payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString() : 'Không có'}</TableCell> {/* Used paymentDate */}
+                <TableCell>{`${payment.user?.firstName || ""} ${payment.user?.lastName || ""}`}</TableCell>{" "}
+                {/* Display full user name */}
                 <TableCell>
-                  <Button variant="outline" size="sm" onClick={() => handleViewPaymentDetailsClick(payment)}>
+                  {parseFloat(payment.amount).toLocaleString()}đ
+                </TableCell>{" "}
+                {/* Parsed amount */}
+                <TableCell>
+                  {payment.servicePackage?.name ||
+                    payment.service?.name ||
+                    "Tư vấn trực tuyến"}
+                </TableCell>{" "}
+                {/* Display service name, default to 'Tư vấn trực tuyến' */}
+                <TableCell>
+                  {paymentStatusMap[payment.status] || payment.status}
+                </TableCell>
+                <TableCell>
+                  {payment.paymentDate
+                    ? new Date(payment.paymentDate).toLocaleDateString()
+                    : "Không có"}
+                </TableCell>{" "}
+                {/* Used paymentDate */}
+                <TableCell>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleViewPaymentDetailsClick(payment)}
+                  >
                     Chi tiết
                   </Button>
                 </TableCell>
@@ -235,7 +267,8 @@ export default function PaymentManagementTable() {
 
       <div className="flex items-center justify-end space-x-2 py-4">
         <div className="flex-1 text-sm text-muted-foreground">
-          Hiển thị {filteredPayments.length} trên tổng số {allPayments.length} thanh toán.
+          Hiển thị {filteredPayments.length} trên tổng số {allPayments.length}{" "}
+          thanh toán.
         </div>
         <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
           <SelectTrigger className="w-[100px]">
@@ -251,7 +284,10 @@ export default function PaymentManagementTable() {
       </div>
 
       {/* View Payment Detail Dialog */}
-      <Dialog open={isViewPaymentDetailDialogOpen} onOpenChange={setIsViewPaymentDetailDialogOpen}>
+      <Dialog
+        open={isViewPaymentDetailDialogOpen}
+        onOpenChange={setIsViewPaymentDetailDialogOpen}
+      >
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Chi tiết Thanh toán</DialogTitle>
@@ -267,57 +303,88 @@ export default function PaymentManagementTable() {
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Người dùng:</Label>
-                <span className="col-span-3">{`${selectedPayment.user?.firstName || ''} ${selectedPayment.user?.lastName || ''}`}</span>
+                <span className="col-span-3">{`${selectedPayment.user?.firstName || ""} ${selectedPayment.user?.lastName || ""}`}</span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Email người dùng:</Label>
-                <span className="col-span-3">{selectedPayment.user?.email || 'Không có'}</span>
+                <span className="col-span-3">
+                  {selectedPayment.user?.email || "Không có"}
+                </span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Số tiền:</Label>
-                <span className="col-span-3">{parseFloat(selectedPayment.amount).toLocaleString()}đ {selectedPayment.currency}</span>
+                <span className="col-span-3">
+                  {parseFloat(selectedPayment.amount).toLocaleString()}đ{" "}
+                  {selectedPayment.currency}
+                </span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Phương thức thanh toán:</Label>
-                <span className="col-span-3">{selectedPayment.paymentMethod || 'Không có'}</span>
+                <span className="col-span-3">
+                  {selectedPayment.paymentMethod || "Không có"}
+                </span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Trạng thái:</Label>
-                <span className="col-span-3">{paymentStatusMap[selectedPayment.status] || selectedPayment.status}</span>
+                <span className="col-span-3">
+                  {paymentStatusMap[selectedPayment.status] ||
+                    selectedPayment.status}
+                </span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Ngày thanh toán:</Label>
-                <span className="col-span-3">{selectedPayment.paymentDate ? new Date(selectedPayment.paymentDate).toLocaleString() : 'Không có'}</span>
+                <span className="col-span-3">
+                  {selectedPayment.paymentDate
+                    ? new Date(selectedPayment.paymentDate).toLocaleString()
+                    : "Không có"}
+                </span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">ID Giao dịch:</Label>
-                <span className="col-span-3">{selectedPayment.transactionId || 'Không có'}</span>
+                <span className="col-span-3">
+                  {selectedPayment.transactionId || "Không có"}
+                </span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Gói dịch vụ:</Label>
-                <span className="col-span-3">{selectedPayment.servicePackage?.name || 'Không có'}</span>
+                <span className="col-span-3">
+                  {selectedPayment.servicePackage?.name || "Không có"}
+                </span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Dịch vụ:</Label>
-                <span className="col-span-3">{selectedPayment.service?.name || 'Không có'}</span>
+                <span className="col-span-3">
+                  {selectedPayment.service?.name || "Không có"}
+                </span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Số hóa đơn:</Label>
-                <span className="col-span-3">{selectedPayment.invoiceNumber || 'Không có'}</span>
+                <span className="col-span-3">
+                  {selectedPayment.invoiceNumber || "Không có"}
+                </span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Đã hoàn tiền:</Label>
-                <span className="col-span-3">{selectedPayment.refunded ? 'Có' : 'Không'}</span>
+                <span className="col-span-3">
+                  {selectedPayment.refunded ? "Có" : "Không"}
+                </span>
               </div>
               {selectedPayment.refunded && (
                 <>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label className="text-right">Số tiền hoàn:</Label>
-                    <span className="col-span-3">{parseFloat(selectedPayment.refundAmount || '0').toLocaleString()}đ</span>
+                    <span className="col-span-3">
+                      {parseFloat(
+                        selectedPayment.refundAmount || "0"
+                      ).toLocaleString()}
+                      đ
+                    </span>
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label className="text-right">Lý do hoàn tiền:</Label>
-                    <span className="col-span-3">{selectedPayment.refundReason || 'Không có'}</span>
+                    <span className="col-span-3">
+                      {selectedPayment.refundReason || "Không có"}
+                    </span>
                   </div>
                 </>
               )}
@@ -325,25 +392,41 @@ export default function PaymentManagementTable() {
                 <>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label className="text-right">Trạng thái cổng TT:</Label>
-                    <span className="col-span-3">{selectedPayment.gatewayResponse.status || 'Không có'}</span>
+                    <span className="col-span-3">
+                      {selectedPayment.gatewayResponse.status || "Không có"}
+                    </span>
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label className="text-right">Mã QR:</Label>
-                    <span className="col-span-3 break-all text-xs">{selectedPayment.gatewayResponse.qrCode || 'Không có'}</span>
+                    <span className="col-span-3 break-all text-xs">
+                      {selectedPayment.gatewayResponse.qrCode || "Không có"}
+                    </span>
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label className="text-right">URL Thanh toán:</Label>
-                    <a href={selectedPayment.gatewayResponse.checkoutUrl} target="_blank" rel="noopener noreferrer" className="col-span-3 text-blue-600 hover:underline break-all text-xs">
-                      {selectedPayment.gatewayResponse.checkoutUrl || 'Không có'}
+                    <a
+                      href={selectedPayment.gatewayResponse.checkoutUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="col-span-3 text-blue-600 hover:underline break-all text-xs"
+                    >
+                      {selectedPayment.gatewayResponse.checkoutUrl ||
+                        "Không có"}
                     </a>
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label className="text-right">Tên tài khoản:</Label>
-                    <span className="col-span-3">{selectedPayment.gatewayResponse.accountName || 'Không có'}</span>
+                    <span className="col-span-3">
+                      {selectedPayment.gatewayResponse.accountName ||
+                        "Không có"}
+                    </span>
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label className="text-right">Số tài khoản:</Label>
-                    <span className="col-span-3">{selectedPayment.gatewayResponse.accountNumber || 'Không có'}</span>
+                    <span className="col-span-3">
+                      {selectedPayment.gatewayResponse.accountNumber ||
+                        "Không có"}
+                    </span>
                   </div>
                 </>
               )}
@@ -351,29 +434,57 @@ export default function PaymentManagementTable() {
                 <>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label className="text-right">ID Cuộc hẹn:</Label>
-                    <span className="col-span-3">{selectedPayment.appointment.id || 'Không có'}</span>
+                    <span className="col-span-3">
+                      {selectedPayment.appointment.id || "Không có"}
+                    </span>
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label className="text-right">Ngày cuộc hẹn:</Label>
-                    <span className="col-span-3">{selectedPayment.appointment.appointmentDate ? new Date(selectedPayment.appointment.appointmentDate).toLocaleString() : 'Không có'}</span>
+                    <span className="col-span-3">
+                      {selectedPayment.appointment.appointmentDate
+                        ? new Date(
+                            selectedPayment.appointment.appointmentDate
+                          ).toLocaleString()
+                        : "Không có"}
+                    </span>
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label className="text-right">Trạng thái cuộc hẹn:</Label>
-                    <span className="col-span-3">{appointmentStatusMap[selectedPayment.appointment.status] || selectedPayment.appointment.status || 'Không có'}</span>
+                    <span className="col-span-3">
+                      {appointmentStatusMap[
+                        selectedPayment.appointment.status
+                      ] ||
+                        selectedPayment.appointment.status ||
+                        "Không có"}
+                    </span>
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label className="text-right">Địa điểm cuộc hẹn:</Label>
-                    <span className="col-span-3">{appointmentLocationMap[selectedPayment.appointment.appointmentLocation] || selectedPayment.appointment.appointmentLocation || 'Không có'}</span>
+                    <span className="col-span-3">
+                      {appointmentLocationMap[
+                        selectedPayment.appointment.appointmentLocation
+                      ] ||
+                        selectedPayment.appointment.appointmentLocation ||
+                        "Không có"}
+                    </span>
                   </div>
                 </>
               )}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Ngày tạo:</Label>
-                <span className="col-span-3">{selectedPayment.createdAt ? new Date(selectedPayment.createdAt).toLocaleString() : 'Không có'}</span>
+                <span className="col-span-3">
+                  {selectedPayment.createdAt
+                    ? new Date(selectedPayment.createdAt).toLocaleString()
+                    : "Không có"}
+                </span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Cập nhật cuối:</Label>
-                <span className="col-span-3">{selectedPayment.updatedAt ? new Date(selectedPayment.updatedAt).toLocaleString() : 'Không có'}</span>
+                <span className="col-span-3">
+                  {selectedPayment.updatedAt
+                    ? new Date(selectedPayment.updatedAt).toLocaleString()
+                    : "Không có"}
+                </span>
               </div>
             </div>
           )}
