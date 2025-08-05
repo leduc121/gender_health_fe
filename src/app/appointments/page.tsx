@@ -27,7 +27,7 @@ import { APIService, Service } from "@/services/service.service";
 import { STITestingService } from "@/services/sti-testing.service";
 import { CheckCircle, Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 // API: Get available slots (for consultant-required services)
 async function getAvailableSlots({
@@ -67,7 +67,7 @@ async function getAvailableSlots({
   return res.json();
 }
 
-export default function AppointmentsPage() {
+function AppointmentsContent() {
   const [step, setStep] = useState(1);
   const [services, setServices] = useState<Service[]>([]);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
@@ -1047,5 +1047,13 @@ export default function AppointmentsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function AppointmentsPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AppointmentsContent />
+    </Suspense>
   );
 }

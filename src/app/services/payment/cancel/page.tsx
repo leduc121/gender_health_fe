@@ -1,9 +1,9 @@
 "use client";
-import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
-export default function ServicePaymentCancelPage() {
+function ServicePaymentCancelContent() {
   const searchParams = useSearchParams();
   const serviceId = searchParams.get("serviceId");
   const router = useRouter();
@@ -21,10 +21,16 @@ export default function ServicePaymentCancelPage() {
       <h1 className="text-2xl font-bold mb-4">Thanh toán dịch vụ đã bị huỷ.</h1>
       <p className="text-lg mb-6">Vui lòng thử lại nếu có lỗi xảy ra.</p>
       {serviceId && (
-        <Button onClick={handleRetryPayment}>
-          Thử thanh toán lại dịch vụ
-        </Button>
+        <Button onClick={handleRetryPayment}>Thử thanh toán lại dịch vụ</Button>
       )}
     </div>
+  );
+}
+
+export default function ServicePaymentCancelPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ServicePaymentCancelContent />
+    </Suspense>
   );
 }

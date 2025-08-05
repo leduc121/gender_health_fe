@@ -1,7 +1,8 @@
 "use client";
 import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
-export default function PaymentCancelPage() {
+function PaymentCancelContent() {
   const searchParams = useSearchParams();
   const appointmentId = searchParams.get("appointmentId");
 
@@ -20,5 +21,13 @@ export default function PaymentCancelPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PaymentCancelPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <PaymentCancelContent />
+    </Suspense>
   );
 }

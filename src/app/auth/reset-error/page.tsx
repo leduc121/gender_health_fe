@@ -1,7 +1,8 @@
 "use client";
 import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
-export default function ResetErrorPage() {
+function ResetErrorContent() {
   const searchParams = useSearchParams();
   const message =
     searchParams.get("message") || "Token không hợp lệ hoặc đã hết hạn.";
@@ -13,5 +14,13 @@ export default function ResetErrorPage() {
       </h2>
       <div>{message}</div>
     </div>
+  );
+}
+
+export default function ResetErrorPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ResetErrorContent />
+    </Suspense>
   );
 }

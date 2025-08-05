@@ -1,11 +1,10 @@
 "use client";
-import { useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
 import AuthDialog from "@/components/AuthDialog";
-import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 
-export default function GoogleCallbackPage() {
+function GoogleCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuth();
@@ -32,8 +31,19 @@ export default function GoogleCallbackPage() {
     <>
       <div>Đang đăng nhập với Google...</div>
       {showAuthDialog && (
-        <AuthDialog trigger={<span className="sr-only"></span>} defaultTab="signin" />
+        <AuthDialog
+          trigger={<span className="sr-only"></span>}
+          defaultTab="signin"
+        />
       )}
     </>
+  );
+}
+
+export default function GoogleCallbackPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <GoogleCallbackContent />
+    </Suspense>
   );
 }

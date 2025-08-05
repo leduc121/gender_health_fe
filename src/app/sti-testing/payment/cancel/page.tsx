@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { XCircle } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect } from "react";
 
-export default function StiTestingPaymentCancelPage() {
+function StiTestingPaymentCancelContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const stiTestProcessId = searchParams.get("stiTestProcessId");
@@ -14,7 +14,9 @@ export default function StiTestingPaymentCancelPage() {
     // Optionally, you can add logic here to update the appointment status to cancelled
     // or log the cancellation reason if needed.
     if (stiTestProcessId) {
-      console.log(`STI Test Process ID ${stiTestProcessId} payment was cancelled.`);
+      console.log(
+        `STI Test Process ID ${stiTestProcessId} payment was cancelled.`
+      );
     }
   }, [stiTestProcessId]);
 
@@ -59,5 +61,13 @@ export default function StiTestingPaymentCancelPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function StiTestingPaymentCancelPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <StiTestingPaymentCancelContent />
+    </Suspense>
   );
 }

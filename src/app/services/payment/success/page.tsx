@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 
-export default function ServicePaymentSuccessPage() {
+function ServicePaymentSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("Đang xử lý thanh toán dịch vụ thành công...");
+  const [message, setMessage] = useState(
+    "Đang xử lý thanh toán dịch vụ thành công..."
+  );
 
   useEffect(() => {
     const orderCode = searchParams.get("orderCode"); // Assuming PayOS returns orderCode in query params
@@ -42,10 +44,16 @@ export default function ServicePaymentSuccessPage() {
       <h1 className="text-2xl font-bold mb-4">Trạng thái thanh toán dịch vụ</h1>
       <p className="text-lg mb-6">{message}</p>
       {!loading && (
-        <Button onClick={handleGoToMyServices}>
-          Xem dịch vụ của tôi
-        </Button>
+        <Button onClick={handleGoToMyServices}>Xem dịch vụ của tôi</Button>
       )}
     </div>
+  );
+}
+
+export default function ServicePaymentSuccessPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ServicePaymentSuccessContent />
+    </Suspense>
   );
 }
