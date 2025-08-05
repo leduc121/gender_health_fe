@@ -200,6 +200,27 @@ export const API_ENDPOINTS = {
   ROLES: {
     GET_ALL: "/roles",
   },
+
+  // Chat
+  CHAT: {
+    BASE: "/chat",
+    QUESTIONS: "/chat/questions",
+    QUESTION_BY_ID: (id: string) => `/chat/questions/${id}`,
+    QUESTION_MESSAGES: (id: string) => `/chat/questions/${id}/messages`,
+    QUESTION_MESSAGES_WITH_URLS: (id: string) =>
+      `/chat/questions/${id}/messages/with-urls`,
+    QUESTION_MESSAGES_FILE: (id: string) =>
+      `/chat/questions/${id}/messages/file`,
+    QUESTION_MESSAGES_PUBLIC_PDF: (id: string) =>
+      `/chat/questions/${id}/messages/public-pdf`,
+    QUESTION_MESSAGES_READ_ALL: (id: string) =>
+      `/chat/questions/${id}/messages/read-all`,
+    MESSAGE_READ: (id: string) => `/chat/messages/${id}/read`,
+    MESSAGE_DELETE: (id: string) => `/chat/messages/${id}`,
+    MESSAGE_FILE: (id: string) => `/chat/messages/${id}/file`,
+    MESSAGES_UNREAD_COUNT: "/chat/messages/unread-count",
+    QUESTION_SUMMARY: (id: string) => `/chat/questions/${id}/summary`,
+  },
 };
 
 // API Request Config

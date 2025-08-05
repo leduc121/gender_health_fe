@@ -18,8 +18,14 @@ export interface ChatMessage {
   id: string;
   appointmentId?: string;
   questionId?: string;
-  senderId: string;
-  senderName?: string;
+  senderId?: string; // Keep for backward compatibility with WebSocket
+  senderName?: string; // Keep for backward compatibility
+  sender?: {
+    id: string;
+    fullName: string;
+    role: string;
+    profilePicture?: string;
+  };
   content: string;
   type: string;
   createdAt: string;
@@ -54,21 +60,17 @@ export function initializeSocket(): Socket {
   }
 
   // Sử dụng URL từ environment hoặc fallback đến domain chính với path /chat
-  const SOCKET_URL =
-    process.env.NEXT_PUBLIC_WEBSOCKET_URL || "https://genderhealthcare.uk";
+  const SOCKET_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL;
 
   console.log("[ChatService] Initializing socket with URL:", SOCKET_URL);
   console.log("[ChatService] Token present:", !!token);
 
   const newSocket = io(SOCKET_URL, {
-    path: "/chat", // Thêm path cho WebSocket
     extraHeaders: {
       Authorization: `Bearer ${token}`,
     },
     auth: {
-      token: token, // Bỏ prefix "Bearer" vì server có thể xử lý khác
-      userId:
-        typeof window !== "undefined" ? localStorage.getItem("userId") : null,
+      token: `Bearer ${token}`,
     },
     transports: ["websocket", "polling"],
     autoConnect: false,
@@ -77,7 +79,6 @@ export function initializeSocket(): Socket {
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
-    forceNew: true, // Tạo kết nối mới
   });
 
   newSocket.on("connect", () => {

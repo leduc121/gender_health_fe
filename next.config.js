@@ -68,6 +68,12 @@ const nextConfig = {
       },
       {
         protocol: "https",
+        hostname: "d4vjsyqlv6u6j.cloudfront.net",
+        port: "",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
         hostname: "genderhealthcare.uk",
         port: "",
         pathname: "/**",
