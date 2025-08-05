@@ -1,38 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useToast } from "@/components/ui/use-toast";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation";
-import { CheckCircle2 } from "lucide-react";
-import StiStepper from "@/components/StiStepper";
-import StiServiceCard from "@/components/StiServiceCard";
-import StiSummarySidebar from "@/components/StiSummarySidebar";
 import AuthDialog from "@/components/AuthDialog"; // Import AuthDialog
-import { APIService, Service } from "@/services/service.service"; // Import ServiceService and Service
+import StiServiceCard from "@/components/StiServiceCard";
+import StiStepper from "@/components/StiStepper";
+import StiSummarySidebar from "@/components/StiSummarySidebar";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { APIService } from "@/services/service.service"; // Import ServiceService and Service
 import { STITestingService } from "@/services/sti-testing.service"; // Import STITestingService
-import { CreateStiAppointmentDto, Appointment, FindAvailableSlotsDto, AvailableSlotDto } from "@/types/sti-appointment.d"; // Import new DTOs and types
+import {
+  Appointment,
+  AvailableSlotDto,
+  CreateStiAppointmentDto,
+  FindAvailableSlotsDto,
+} from "@/types/sti-appointment.d"; // Import new DTOs and types
 import { Shield } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 const steps = [
   "Chọn dịch vụ",
   "Xác nhận thông tin",
@@ -40,111 +26,6 @@ const steps = [
   "Xác nhận & đặt lịch",
   "Hoàn tất",
 ];
-
-function Stepper({ step }: { step: number }) {
-  return (
-    <div className="flex items-center justify-between mb-12">
-      {steps.map((label, idx) => (
-        <div key={label} className="flex-1 flex flex-col items-center relative">
-          <div
-            className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-white text-lg shadow-lg transition-all duration-300
-              ${idx < step ? "bg-green-500" : idx === step ? "bg-primary scale-110" : "bg-gray-300"}
-            `}
-          >
-            {idx < step ? <CheckCircle2 className="w-7 h-7" /> : idx + 1}
-          </div>
-          <span
-            className={`mt-3 text-base font-semibold ${idx === step ? "text-primary" : idx < step ? "text-green-600" : "text-gray-400"}`}
-          >
-            {label}
-          </span>
-          {idx < steps.length - 1 && (
-            <div
-              className="absolute top-6 right-0 left-1/2 h-1 w-full bg-gray-200 z-0"
-              style={{ zIndex: -1 }}
-            />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function SummarySidebar({
-  selectedServices,
-  user,
-  selectedDate,
-  selectedTime,
-  step,
-  estimatedCost,
-  estimatedDuration,
-}: any) {
-  return (
-    <aside className="sticky top-8 bg-white rounded-2xl shadow-2xl p-8 w-full md:w-96 mb-8 md:mb-0 border border-gray-100">
-      <h3 className="font-bold text-xl mb-6 text-primary">Tóm tắt</h3>
-      <div className="mb-4">
-        <div className="font-medium text-gray-700">Dịch vụ đã chọn:</div>
-        {selectedServices.length === 0 ? (
-          <div className="text-gray-300 italic">Chưa chọn</div>
-        ) : (
-          <ul className="list-disc ml-5 mt-1 space-y-1">
-            {selectedServices.map((s: any) => (
-              <li
-                key={s.id}
-                className="flex justify-between items-center text-base"
-              >
-                <span>{s.name}</span>
-                <span className="text-sm text-gray-500">
-                  {s.price?.toLocaleString()}đ
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      <div className="mb-3">
-        <div className="font-medium text-gray-700">Ngày xét nghiệm:</div>
-        <div className="text-base">
-          {selectedDate ? (
-            selectedDate.toLocaleDateString()
-          ) : (
-            <span className="text-gray-300 italic">Chưa chọn</span>
-          )}
-        </div>
-      </div>
-      <div className="mb-3">
-        <div className="font-medium text-gray-700">Giờ xét nghiệm:</div>
-        <div className="text-base">
-          {selectedTime || (
-            <span className="text-gray-300 italic">Chưa chọn</span>
-          )}
-        </div>
-      </div>
-      <div className="mb-3">
-        <div className="font-medium text-gray-700">Khách hàng:</div>
-        <div className="text-base">
-          {user?.fullName || user?.email || (
-            <span className="text-gray-300 italic">Chưa đăng nhập</span>
-          )}
-        </div>
-      </div>
-      {estimatedCost && (
-        <div className="mb-3">
-          <div className="font-medium text-gray-700">Tổng chi phí dự kiến:</div>
-          <div className="text-primary font-bold text-lg">
-            {estimatedCost.toLocaleString()}đ
-          </div>
-        </div>
-      )}
-      {estimatedDuration && (
-        <div className="mb-3">
-          <div className="font-medium text-gray-700">Thời gian dự kiến:</div>
-          <div className="text-base">{estimatedDuration}</div>
-        </div>
-      )}
-    </aside>
-  );
-}
 
 export default function STITestingPage() {
   const { user, isAuthenticated } = useAuth();
@@ -156,14 +37,18 @@ export default function STITestingPage() {
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [bookingLoading, setBookingLoading] = useState(false);
-  const [bookingResult, setBookingResult] = useState<Appointment[] | null>(null);
+  const [bookingResult, setBookingResult] = useState<Appointment[] | null>(
+    null
+  );
   const [error, setError] = useState("");
   const [estimatedCost, setEstimatedCost] = useState<number | null>(null);
   const [estimatedDuration, setEstimatedDuration] = useState<string | null>(
     null
   );
   const [availableSlots, setAvailableSlots] = useState<AvailableSlotDto[]>([]);
-  const [selectedSlot, setSelectedSlot] = useState<AvailableSlotDto | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<AvailableSlotDto | null>(
+    null
+  );
   const router = useRouter();
 
   if (!isAuthenticated) {
@@ -189,9 +74,10 @@ export default function STITestingPage() {
       try {
         const response = await APIService.getAll();
         const allServices = response.data;
-        const stiServices = allServices.filter(service =>
-          service.name.toLowerCase().includes("sti") ||
-          (service.type && service.type.toLowerCase().includes("sti")) // Assuming a 'type' field might exist for service classification
+        const stiServices = allServices.filter(
+          (service) =>
+            service.name.toLowerCase().includes("sti") ||
+            (service.type && service.type.toLowerCase().includes("sti")) // Assuming a 'type' field might exist for service classification
         );
         setServices(stiServices);
       } catch (error: any) {
@@ -244,7 +130,7 @@ export default function STITestingPage() {
 
     const fetchAvailableSlots = async () => {
       try {
-        const startDate = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        const startDate = selectedDate.toISOString().split("T")[0]; // YYYY-MM-DD
         const endDate = startDate; // Search for slots on the selected date only
 
         const payload: FindAvailableSlotsDto = {
@@ -256,9 +142,12 @@ export default function STITestingPage() {
           // endTime: "17:00",
         };
 
-        const response = await STITestingService.getAvailableAppointmentSlots(payload);
-        let slots = response.availableSlots.filter(slot => slot.remainingSlots > 0);
-        
+        const response =
+          await STITestingService.getAvailableAppointmentSlots(payload);
+        let slots = response.availableSlots.filter(
+          (slot) => slot.remainingSlots > 0
+        );
+
         // Deduplicate slots by availabilityId to ensure unique keys for rendering
         const uniqueSlotsMap = new Map<string, AvailableSlotDto>();
         for (const slot of slots) {
@@ -270,14 +159,27 @@ export default function STITestingPage() {
 
         // Sort slots by time
         slots.sort((a, b) => {
-          const timeA = new Date(a.dateTime).getHours() * 60 + new Date(a.dateTime).getMinutes();
-          const timeB = new Date(b.dateTime).getHours() * 60 + new Date(b.dateTime).getMinutes();
+          const timeA =
+            new Date(a.dateTime).getHours() * 60 +
+            new Date(a.dateTime).getMinutes();
+          const timeB =
+            new Date(b.dateTime).getHours() * 60 +
+            new Date(b.dateTime).getMinutes();
           return timeA - timeB;
         });
 
         setAvailableSlots(slots);
         // Reset selected slot if current selected time is not in new available slots
-        if (selectedTime && !slots.find(s => new Date(s.dateTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) === selectedTime)) {
+        if (
+          selectedTime &&
+          !slots.find(
+            (s) =>
+              new Date(s.dateTime).toLocaleTimeString("en-GB", {
+                hour: "2-digit",
+                minute: "2-digit",
+              }) === selectedTime
+          )
+        ) {
           setSelectedTime("");
           setSelectedSlot(null);
         }
@@ -326,7 +228,7 @@ export default function STITestingPage() {
         const payload: CreateStiAppointmentDto = {
           stiServiceId: serviceId,
           sampleCollectionDate: sampleCollectionDateTime.toISOString(),
-          sampleCollectionLocation: "online", // Default, ideally from UI
+          sampleCollectionLocation: "office",
           notes: notes,
           consultantId: selectedSlot.consultant?.id, // Pass consultantId from selected slot
         };
@@ -441,11 +343,18 @@ export default function STITestingPage() {
               <div className="flex gap-2 flex-wrap">
                 {availableSlots.length > 0 ? (
                   availableSlots.map((slot) => {
-                    const time = new Date(slot.dateTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                    const time = new Date(slot.dateTime).toLocaleTimeString(
+                      "en-GB",
+                      { hour: "2-digit", minute: "2-digit" }
+                    );
                     return (
                       <Button
                         key={slot.availabilityId} // Use availabilityId as key
-                        variant={selectedSlot?.availabilityId === slot.availabilityId ? "default" : "outline"}
+                        variant={
+                          selectedSlot?.availabilityId === slot.availabilityId
+                            ? "default"
+                            : "outline"
+                        }
                         onClick={() => {
                           setSelectedTime(time);
                           setSelectedSlot(slot);
@@ -456,7 +365,9 @@ export default function STITestingPage() {
                     );
                   })
                 ) : (
-                  <p className="text-gray-500">Không có slot khả dụng cho ngày đã chọn.</p>
+                  <p className="text-gray-500">
+                    Không có slot khả dụng cho ngày đã chọn.
+                  </p>
                 )}
               </div>
             </div>
@@ -521,9 +432,7 @@ export default function STITestingPage() {
             </div>
             <div className="mb-2">
               Thời gian dự kiến có kết quả:{" "}
-              <span className="font-medium">
-                {estimatedDuration || "N/A"}
-              </span>
+              <span className="font-medium">{estimatedDuration || "N/A"}</span>
             </div>
             <Button
               className="mt-4"
