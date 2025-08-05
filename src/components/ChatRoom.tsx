@@ -133,8 +133,9 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
           }
 
           // Replace temporary message if it exists
+          const senderId = message.sender?.id || message.senderId;
           if (
-            message.senderId === user?.id &&
+            senderId === user?.id &&
             prevMessages.some(
               (msg) =>
                 msg.content === message.content && msg.id.startsWith("temp-")
@@ -151,7 +152,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
         });
 
         // Mark message as read if not from current user
-        if (message.senderId !== user?.id) {
+        const senderId = message.sender?.id || message.senderId;
+        if (senderId !== user?.id) {
           ChatService.markMessageAsRead(message.id);
         }
       });
@@ -227,15 +229,12 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
 
       try {
         // Try to fetch Question by questionId first
-        currentQuestion = await ChatService.getQuestionById(questionId);
-        setChatQuestion(currentQuestion);
-        console.log("[ChatRoom] Fetched Question by ID:", currentQuestion);
+        // API endpoint doesn't exist - skip this call
+        // currentQuestion = await ChatService.getQuestionById(questionId);
+        throw new Error("API not available - using fallback");
       } catch (questionError: any) {
-        console.error(
-          "[ChatRoom] Error fetching question by ID:",
-          questionError
-        );
-        // If fetching Question fails, try to construct a Question from initial props
+        console.log("[ChatRoom] Using fallback logic (API not available)");
+        // Try to construct Question from initial props, or create minimal question
         if (initialTitle && initialContent && user) {
           currentQuestion = {
             id: questionId,
@@ -251,6 +250,22 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
             "[ChatRoom] Constructed Question from initial props:",
             currentQuestion
           );
+        } else if (user) {
+          // Create minimal question for WebSocket-only operation
+          currentQuestion = {
+            id: questionId,
+            title: "Chat Session",
+            content: "Phòng chat trực tuyến",
+            userId: user.id,
+            status: "pending",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          setChatQuestion(currentQuestion);
+          console.log(
+            "[ChatRoom] Created minimal question for WebSocket:",
+            currentQuestion
+          );
         }
       } finally {
         if (!currentQuestion) {
@@ -263,8 +278,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
           return;
         }
 
-        // Fetch creator user details
-        if (currentQuestion.userId) {
+        // Fetch creator user details (only if creator is not current user)
+        if (currentQuestion.userId && currentQuestion.userId !== user?.id) {
           try {
             const fetchedCreator = await UserService.getUserById(
               currentQuestion.userId
@@ -277,6 +292,10 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
             );
             setCreatorUser(null);
           }
+        } else if (currentQuestion.userId === user?.id) {
+          // Current user is the creator, no need to fetch
+          setCreatorUser(user);
+          console.log("[ChatRoom] Current user is the creator");
         }
 
         // Fetch associated appointment and consultant details
@@ -578,29 +597,54 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
   }
 
   const getSenderName = (message: ChatMessage) => {
-    if (message.senderId === user?.id) {
+    // Get sender ID from either new format (REST API) or old format (WebSocket)
+    const senderId = message.sender?.id || message.senderId;
+    const senderName = message.sender?.fullName || message.senderName;
+
+    // Always check current user first
+    if (senderId === user?.id) {
       return "Bạn";
     }
-    if (creatorUser?.id === message.senderId) {
-      return `${creatorUser.firstName} ${creatorUser.lastName}` || "Người dùng";
+
+    // Fallback: Check by senderName if ID is missing
+    if (!senderId && senderName === user?.fullName) {
+      return "Bạn";
     }
-    if (consultantProfile?.user.id === message.senderId) {
-      return `${consultantProfile.user.firstName} ${consultantProfile.user.lastName}`;
+
+    // Check creator user (only if not current user)
+    if (creatorUser?.id === senderId) {
+      const fullName =
+        `${creatorUser?.firstName || ""} ${creatorUser?.lastName || ""}`.trim();
+      return fullName || "Người tạo câu hỏi";
     }
-    return message.senderName || "Người dùng khác";
+
+    // Check consultant
+    if (consultantProfile?.user?.id === senderId) {
+      const fullName =
+        `${consultantProfile?.user?.firstName || ""} ${consultantProfile?.user?.lastName || ""}`.trim();
+      return fullName || "Tư vấn viên";
+    }
+
+    // Return sender name from API or fallback
+    return senderName || "Người dùng khác";
   };
 
   const getSenderAvatar = (message: ChatMessage) => {
-    if (message.senderId === user?.id) {
+    // Get sender ID and profile picture from either format
+    const senderId = message.sender?.id || message.senderId;
+    const senderProfilePicture = message.sender?.profilePicture;
+
+    if (senderId === user?.id) {
       return user?.profilePicture || "";
     }
-    if (creatorUser?.id === message.senderId) {
-      return creatorUser.profilePicture || "";
+    if (creatorUser?.id === senderId) {
+      return creatorUser?.profilePicture || "";
     }
-    if (consultantProfile?.user.id === message.senderId) {
-      return consultantProfile.user.profilePicture || "";
+    if (consultantProfile?.user?.id === senderId) {
+      return consultantProfile?.user?.profilePicture || "";
     }
-    return "";
+    // Return profile picture from API sender object if available
+    return senderProfilePicture || "";
   };
 
   return (
@@ -623,8 +667,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
             {consultantProfile && (
               <>
                 <br />
-                Tư vấn viên: {consultantProfile.user.firstName}{" "}
-                {consultantProfile.user.lastName}
+                Tư vấn viên: {consultantProfile?.user?.firstName}{" "}
+                {consultantProfile?.user?.lastName}
               </>
             )}
             {appointmentDetails && (
@@ -656,7 +700,11 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
         <CardContent className="flex-1 overflow-hidden p-4">
           <ScrollArea className="h-full pr-4">
             {messages.map((message) => {
-              const isCurrentUser = message.senderId === user?.id;
+              const senderId = message.sender?.id || message.senderId;
+              const senderName = message.sender?.fullName || message.senderName;
+              const isCurrentUser =
+                senderId === user?.id ||
+                (!senderId && senderName === user?.fullName);
               return (
                 <div
                   key={message.id}
